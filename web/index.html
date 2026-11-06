@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RIMBA — a naturalist that watches Sui and remembers what it saw</title>
+  <meta name="description" content="RIMBA watches Sui mainnet through Tatum's gRPC checkpoint stream, calls what big wallets do next, and remembers every outcome in Walrus Memory. Every call is scored in public." />
+  <meta name="theme-color" content="#0D2B30" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="preload" href="/fonts/young-serif-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/fonts/source-sans-3-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="top">
+    <a class="brand" href="#/" aria-label="RIMBA — reef">RIMBA</a>
+    <p class="ticker" id="ticker" aria-live="off">Connecting…</p>
+    <span class="badge" id="badge" role="status">…</span>
+    <nav class="nav" aria-label="Pages">
+      <a href="#/" data-route="reef">Reef</a>
+      <a href="#/notebook" data-route="notebook">Notebook</a>
+      <a href="#/how" data-route="how">How it works</a>
+    </nav>
+  </header>
+  <main id="main" tabindex="-1"></main>
+  <div class="sr-only" id="announce" aria-live="polite"></div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

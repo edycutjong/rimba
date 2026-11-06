@@ -5,12 +5,13 @@
 //   GET /api/score            Brier scorecard (headline Tatum×Walrus + labelled development views)
 //   GET /api/health           logger heartbeat + Walrus Memory relayer health
 //   GET /api/notes            ?limit=50 — most recent field notes
+//   GET /rounds.csv           every resolved round of the current question (same file `pnpm score --write` emits)
 //   GET /integrations/verify  last 20 sponsor calls (method, latency, ok, source)
 import { closeSync, existsSync, openSync, readSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import type { NoteRecord } from './notes.js';
-import { scorecard } from './score.js';
+import { joinRounds, roundsCsv, scorecard } from './score.js';
 import { files, loadConfig, readJson, readJsonl, type CallRow, type ResolutionRow } from './store.js';
 
 /** Incremental reader of an append-only JSONL file (keeps a partial trailing line for next time). */
@@ -151,6 +152,12 @@ export function makeServer(opts: ServerOptions = {}): Server {
             all_rows: scorecard(calls, resolutions, cfg),
           });
         }
+        case '/rounds.csv': {
+          const sameQ = readJsonl<CallRow>(files.calls()).filter((c) => c.horizon_min === cfg.horizon_min && c.move_rule === cfg.move_rule);
+          const csv = roundsCsv(joinRounds(sameQ, readJsonl<ResolutionRow>(files.resolutions())).rounds);
+          res.writeHead(200, { 'content-type': 'text/csv; charset=utf-8', 'access-control-allow-origin': '*', 'cache-control': 'no-store' });
+          return res.end(csv);
+        }
         case '/api/health':
           return json(res, 200, { logger: readJson(files.health()), walrus_relayer: await relayerHealth() });
         case '/api/notes': {
@@ -160,7 +167,7 @@ export function makeServer(opts: ServerOptions = {}): Server {
         case '/integrations/verify':
           return json(res, 200, { calls: tailJsonl<Record<string, unknown>>(files.rpc(), 20).reverse() });
         default:
-          return json(res, 404, { error: 'not found', endpoints: ['/events', '/api/rounds', '/api/score', '/api/health', '/api/notes', '/integrations/verify'] });
+          return json(res, 404, { error: 'not found', endpoints: ['/events', '/api/rounds', '/api/score', '/api/health', '/api/notes', '/rounds.csv', '/integrations/verify'] });
       }
     } catch (e) {
       return json(res, 500, { error: String(e) });
