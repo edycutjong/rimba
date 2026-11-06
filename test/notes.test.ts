@@ -139,3 +139,52 @@ describe('NoteWriter durability', () => {
     expect(w.queued).toBe(0);
   });
 });
+
+describe('NoteWriter — accepted jobs and backend switches', () => {
+  const T = Date.parse('2026-11-07T12:00:00Z');
+  it('keeps an accepted-but-unconfirmed write awaiting, re-polls it by job id, and never resubmits it', async () => {
+    let now = T;
+    const sent: string[][] = [];
+    let confirmDone = false;
+    const mem: NoteMemory = {
+      kind: 'walrus',
+      recall: async () => [],
+      remember: async (texts) => { sent.push(texts); return texts.map((text, i) => ({ text, ok: i === 1, pending: i === 0, job_id: `J${i}`, created_at: new Date(now).toISOString() })); },
+      confirm: async (ids) => ids.map((id) => ({ text: '', ok: confirmDone, pending: !confirmDone, job_id: id, blob_id: confirmDone ? 'B0' : undefined, created_at: new Date(now).toISOString() })),
+    };
+    const recs: NoteRecord[] = [];
+    const w = new NoteWriter(() => mem, (r) => recs.push(r), {}, { now: () => now });
+    w.enqueue((sp) => outcomeNote(sp, SP, 15, 1, '1'), SP, 'R0', 'outcome', 1);
+    w.enqueue((sp) => outcomeNote(sp, SP, 15, 0, '2'), SP, 'R1', 'outcome', 1);
+    await w.flush();
+    expect(recs.map((r) => [r.round_id, r.ok])).toEqual([['R1', true]]);
+    expect(w.awaitingCount).toBe(1);
+    now += 60_000;
+    await w.flush(); // still running
+    expect(w.awaitingCount).toBe(1);
+    confirmDone = true;
+    now += 60_000;
+    await w.flush();
+    expect(recs.map((r) => [r.round_id, r.ok, r.blob_id ?? null])).toEqual([['R1', true, null], ['R0', true, 'B0']]);
+    expect(recs[1]!.submitted_at).toBe(new Date(T).toISOString());
+    expect(sent).toHaveLength(1); // the accepted note was never sent a second time
+    expect(w.snapshot().awaiting).toEqual([]);
+  });
+
+  it('drops notes queued under another backend, on a hot switch or after a cold restart', async () => {
+    let mem: NoteMemory = new LocalNoteMemory([], () => T);
+    const recs: NoteRecord[] = [];
+    const w = new NoteWriter(() => mem, (r) => recs.push(r), {}, { now: () => T + 3600_000 });
+    w.enqueue((sp) => outcomeNote(sp, SP, 15, 1, '1'), SP, 'R0', 'outcome', 1);
+    const walrus: NoteMemory = { kind: 'walrus', recall: async () => [], remember: async (t) => t.map((text) => ({ text, ok: true, created_at: 'x' })) };
+    // cold restart: the persisted queue has no backend tag (pre-tag state) → treated as local-dev
+    const cold = new NoteWriter(() => walrus, (r) => recs.push(r), { queue: [{ ...w.snapshot().queue![0]!, backend: undefined }] }, { now: () => T + 3600_000 });
+    await cold.flush();
+    expect(cold.queued).toBe(0);
+    expect(cold.droppedOtherBackend).toBe(1);
+    mem = walrus; // hot switch
+    await w.flush();
+    expect(w.droppedOtherBackend).toBe(1);
+    expect(recs).toHaveLength(0);
+  });
+});

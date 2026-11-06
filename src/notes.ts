@@ -84,6 +84,8 @@ export interface NoteRecord {
   job_id?: string;
   blob_id?: string;
   error?: string;
+  /** When the note was sent to the backend (before rememberBulk). created_at is when it was confirmed. */
+  submitted_at?: string;
 }
 
 export interface Pending {
@@ -94,7 +96,18 @@ export interface Pending {
   kind: NoteRecord['kind'];
   priority: number;
   queuedAt: number;
+  /** The memory backend in force when the note was queued; a note never crosses to another backend. Absent = local-dev. */
+  backend?: NoteMemory['kind'];
 }
+
+/** A note the backend accepted but has not confirmed: re-polled by job id, never resubmitted. */
+export interface Awaiting extends Pending {
+  job_id: string;
+  submittedAt: number;
+}
+
+/** Give up confirming after this long and log the note as failed (the job id stays in the record). */
+export const AWAIT_MAX_MS = 60 * 60_000;
 
 export interface WriterState {
   next_specimen: number;
@@ -105,6 +118,8 @@ export interface WriterState {
   next_write_at: number;
   /** Notes waiting for budget — persisted so a restart does not drop them. */
   queue?: Pending[];
+  /** Accepted-but-unconfirmed writes — persisted so a restart keeps polling them. */
+  awaiting?: Awaiting[];
 }
 
 export interface NoteWriterOptions {
@@ -125,7 +140,10 @@ export const utcDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
  */
 export class NoteWriter {
   private queue: Pending[] = [];
+  private awaiting: Awaiting[] = [];
   private flushing = false;
+  /** Queued notes dropped because the memory backend changed since they were queued (cold or hot switch). */
+  droppedOtherBackend = 0;
   readonly opts: Required<NoteWriterOptions>;
   state: WriterState;
 
@@ -146,6 +164,7 @@ export class NoteWriter {
       next_write_at: state.next_write_at ?? 0,
     };
     this.queue = [...(state.queue ?? [])];
+    this.awaiting = [...(state.awaiting ?? [])];
     this.rollDay(now);
   }
 
@@ -159,7 +178,7 @@ export class NoteWriter {
       maxId = Math.max(maxId, Number(n.specimen_id.replace(/^No\./, '')) || 0);
       if (n.created_at.slice(0, 10) === this.state.day) today++;
     }
-    for (const q of this.queue) maxId = Math.max(maxId, q.specimen);
+    for (const q of [...this.queue, ...this.awaiting]) maxId = Math.max(maxId, q.specimen);
     this.state.next_specimen = Math.max(this.state.next_specimen, maxId + 1);
     this.state.written_today = Math.max(this.state.written_today, today);
   }
@@ -173,11 +192,15 @@ export class NoteWriter {
 
   /** Serializable state including the pending queue. */
   snapshot(): WriterState {
-    return { ...this.state, queue: [...this.queue] };
+    return { ...this.state, queue: [...this.queue], awaiting: [...this.awaiting] };
   }
 
   get queued(): number {
     return this.queue.length;
+  }
+
+  get awaitingCount(): number {
+    return this.awaiting.length;
   }
 
   private rollDay(now: number) {
@@ -201,7 +224,7 @@ export class NoteWriter {
   /** `build` receives the specimen number assigned to this note and returns the note text. */
   enqueue(build: (specimen: number) => string, species: string, roundId: string, kind: NoteRecord['kind'], priority: number): string {
     const specimen = this.state.next_specimen++;
-    this.queue.push({ specimen, text: build(specimen), species, roundId, kind, priority, queuedAt: this.opts.now() });
+    this.queue.push({ specimen, text: build(specimen), species, roundId, kind, priority, queuedAt: this.opts.now(), backend: this.memory().kind });
     if (this.queue.length > this.opts.queueCap) {
       // drop the lowest-priority, oldest note
       let worst = 0;
@@ -217,13 +240,20 @@ export class NoteWriter {
   /** Flush one batch if budget and backoff allow. Returns the records written (ok or failed). */
   async flush(): Promise<NoteRecord[]> {
     const now = this.opts.now();
-    if (this.flushing || !this.queue.length || now < this.state.next_write_at) return [];
+    if (this.flushing) return [];
+    const mem = this.memory();
+    // one rule for hot and cold switches: a note queued under another backend is dropped, never carried over
+    const before = this.queue.length;
+    this.queue = this.queue.filter((q) => (q.backend ?? 'local-dev') === mem.kind);
+    this.droppedOtherBackend += before - this.queue.length;
+    const confirmed = await this.confirmAwaiting(mem);
+    if (!this.queue.length || now < this.state.next_write_at) return confirmed;
     const n = Math.min(this.opts.batchSize, this.allowance(now), this.queue.length);
-    if (n <= 0) return [];
+    if (n <= 0) return confirmed;
     this.flushing = true;
     this.queue.sort((a, b) => b.priority - a.priority || a.queuedAt - b.queuedAt);
     const batch = this.queue.splice(0, n);
-    const mem = this.memory();
+    const submittedAt = this.opts.now();
     let stored: StoredNote[];
     try {
       stored = await mem.remember(batch.map((b) => b.text));
@@ -241,22 +271,64 @@ export class NoteWriter {
     }
     this.flushing = false;
     this.state.written_today += batch.length;
-    // One record per submitted note, whatever the backend returned: a missing result is a failure.
-    const out = batch.map((b, i) => {
+    // One record per submitted note, whatever the backend returned: a missing result is a failure;
+    // an accepted-but-unconfirmed job waits in `awaiting` and is recorded once it settles.
+    const out: NoteRecord[] = [];
+    batch.forEach((b, i) => {
       const s = stored[i];
-      return {
-        specimen_id: specimenLabel(b.specimen), text: b.text, species: b.species, round_id: b.roundId, kind: b.kind,
-        backend: mem.kind, ok: !!s && s.ok && s.text === b.text, created_at: s?.created_at ?? new Date(this.opts.now()).toISOString(),
-        job_id: s?.job_id, blob_id: s?.blob_id, error: s ? s.error : 'no result returned for this item',
-      } satisfies NoteRecord;
+      if (s?.pending && s.job_id) {
+        this.awaiting.push({ ...b, backend: mem.kind, job_id: s.job_id, submittedAt });
+        return;
+      }
+      out.push(this.record(b, mem.kind, submittedAt, s && s.text === b.text ? s : undefined, s ? undefined : 'no result returned for this item'));
     });
-    for (const rec of out) {
+    this.emit(out);
+    return [...confirmed, ...out];
+  }
+
+  private record(b: Pending, backend: NoteMemory['kind'], submittedAt: number, s: StoredNote | undefined, missing?: string): NoteRecord {
+    return {
+      specimen_id: specimenLabel(b.specimen), text: b.text, species: b.species, round_id: b.roundId, kind: b.kind,
+      backend, ok: !!s && s.ok, created_at: s?.created_at ?? new Date(this.opts.now()).toISOString(),
+      job_id: s?.job_id, blob_id: s?.blob_id, error: s ? s.error : missing ?? 'text mismatch in backend result',
+      submitted_at: new Date(submittedAt).toISOString(),
+    };
+  }
+
+  private emit(recs: NoteRecord[]) {
+    for (const rec of recs) {
       try {
         this.onStored(rec);
       } catch {
         /* a failing observer (e.g. disk full) must not re-queue notes that are already stored */
       }
     }
+  }
+
+  /** Re-poll accepted jobs on the current backend; settle done/failed, give up after AWAIT_MAX_MS. */
+  private async confirmAwaiting(mem: NoteMemory): Promise<NoteRecord[]> {
+    const mine = this.awaiting.filter((a) => (a.backend ?? 'local-dev') === mem.kind).slice(0, this.opts.batchSize);
+    if (!mine.length || !mem.confirm) return [];
+    this.flushing = true;
+    let res: StoredNote[];
+    try {
+      res = await mem.confirm(mine.map((a) => a.job_id));
+    } catch {
+      res = [];
+    } finally {
+      this.flushing = false;
+    }
+    const out: NoteRecord[] = [];
+    const now = this.opts.now();
+    mine.forEach((a, i) => {
+      const s = res[i];
+      const settled = s && !s.pending;
+      const expired = now - a.submittedAt > AWAIT_MAX_MS;
+      if (!settled && !expired) return;
+      this.awaiting.splice(this.awaiting.indexOf(a), 1);
+      out.push(this.record(a, mem.kind, a.submittedAt, settled ? { ...s, text: a.text } : { text: a.text, ok: false, job_id: a.job_id, created_at: new Date(now).toISOString(), error: `unconfirmed after ${AWAIT_MAX_MS / 60_000} min` }));
+    });
+    this.emit(out);
     return out;
   }
 }

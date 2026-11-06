@@ -75,7 +75,10 @@ export function offlineChecks(calls: CallRow[], resolutions: ResolutionRow[], no
       const at = c.cited_created_at?.[i] ?? null;
       tally('I3 cited note written before call (row)', !!at && Date.parse(at) < t, c.round_id, `${id} at ${at} vs call ${c.created_at}`);
       const rec = notesById.get(`${c.memory_source}:${id}`);
-      tally('I3 cited note exists in notes log, written before call', !!rec && Date.parse(rec.created_at) < t, c.round_id, `${id} ${rec ? 'logged ' + rec.created_at : 'missing from notes log'}`);
+      // the log's created_at is when WE saw the job confirmed (up to one poll after the relayer stored it), so the
+      // local bound is the submit time; the relayer's own creation time is checked on the row above
+      const sent = rec ? rec.submitted_at ?? rec.created_at : undefined;
+      tally('I3 cited note exists in notes log, submitted before call', !!sent && Date.parse(sent) < t, c.round_id, `${id} ${rec ? 'submitted ' + sent : 'missing from notes log'}`);
     });
   }
   return { rounds: calls.length, resolutions: resolutions.length, checks, findings };

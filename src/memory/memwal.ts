@@ -61,17 +61,32 @@ export class WalrusNoteMemory implements NoteMemory {
       this.rpc('memwal.rememberBulk', Date.now() - t, false);
       throw asRateLimit(e) ?? e;
     }
-    const t2 = Date.now();
+    return (await this.poll(jobIds, 120_000)).map((s, i) => ({ ...s, text: texts[i]! }));
+  }
+
+  /** Re-poll accepted jobs (a congested upload can run ~25 min); resubmitting would pay for a second blob. */
+  async confirm(jobIds: string[]): Promise<StoredNote[]> {
+    return this.poll(jobIds, 20_000);
+  }
+
+  private async poll(jobIds: string[], timeoutMs: number): Promise<StoredNote[]> {
+    const t = Date.now();
     try {
-      const res = await this.mw.waitForRememberJobs(jobIds, items.map(() => NAMESPACE), { timeoutMs: 300_000, pollIntervalMs: 3000 });
-      this.rpc('memwal.waitForRememberJobs', Date.now() - t2, res.failed === 0);
+      // results are positional: results[i] belongs to jobIds[i] (SDK 0.1.13 memwal.js waitForRememberJobs)
+      const res = await this.mw.waitForRememberJobs(jobIds, jobIds.map(() => NAMESPACE), { timeoutMs, pollIntervalMs: 3000 });
+      this.rpc('memwal.waitForRememberJobs', Date.now() - t, res.failed === 0);
       const at = new Date().toISOString();
-      return res.results.map((r, i) => ({ text: texts[i]!, ok: r.status === 'done', job_id: r.id || jobIds[i], blob_id: r.blob_id || undefined, created_at: at, error: r.error }));
+      return jobIds.map((id, i) => {
+        const r = res.results[i];
+        if (!r) return { text: '', ok: false, pending: true, job_id: id, created_at: at, error: 'no status returned' };
+        // `timeout` = still running: pending, not failed. `failed` / `not_found` are final.
+        return { text: '', ok: r.status === 'done', pending: r.status === 'timeout', job_id: r.id || id, blob_id: r.blob_id || undefined, created_at: at, error: r.status === 'done' ? undefined : r.error ?? r.status };
+      });
     } catch (e) {
-      this.rpc('memwal.waitForRememberJobs', Date.now() - t2, false);
-      // Accepted but unconfirmed: report as failed with their job ids so nothing is claimed as stored.
+      this.rpc('memwal.waitForRememberJobs', Date.now() - t, false);
+      // every status read refused (429): the jobs were accepted, so they stay pending — never claimed, never resent
       const at = new Date().toISOString();
-      return texts.map((text, i) => ({ text, ok: false, job_id: jobIds[i], created_at: at, error: String(e) }));
+      return jobIds.map((id) => ({ text: '', ok: false, pending: true, job_id: id, created_at: at, error: String(e) }));
     }
   }
 }

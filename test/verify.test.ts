@@ -37,7 +37,7 @@ describe('offline invariant checks', () => {
     const failed = Object.entries(r.checks).filter(([, v]) => v.failed).map(([k]) => k);
     expect(failed).toEqual(expect.arrayContaining([
       'I1 resolution has a call', 'I1 one resolution per round', 'I1 resolved after called', 'I2 YES inside window',
-      'I3 cited note written before call (row)', 'I3 cited note exists in notes log, written before call',
+      'I3 cited note written before call (row)', 'I3 cited note exists in notes log, submitted before call',
     ]));
   });
 

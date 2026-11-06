@@ -30,6 +30,8 @@ export interface StoredNote {
   /** When the write was confirmed (walrus: job reached `done`). */
   created_at: string;
   error?: string;
+  /** Accepted by the backend but not confirmed yet (walrus: job still running). Re-poll by job id; never resubmit. */
+  pending?: boolean;
 }
 
 export class RateLimitedError extends Error {
@@ -41,8 +43,10 @@ export class RateLimitedError extends Error {
 export interface NoteMemory {
   readonly kind: MemorySource;
   recall(q: RecallQuery): Promise<RecalledNote[]>;
-  /** Write up to 20 notes; resolves when every write is confirmed or failed. */
+  /** Write up to 20 notes; resolves when every write is confirmed, failed, or still pending (job ids kept). */
   remember(texts: string[]): Promise<StoredNote[]>;
+  /** Re-poll accepted jobs by id (positional results; `text` is left empty — the caller holds it). */
+  confirm?(jobIds: string[]): Promise<StoredNote[]>;
 }
 
 /** In-process stand-in. Distance = weighted slot distance between the species in the two texts. */

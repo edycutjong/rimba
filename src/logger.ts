@@ -189,7 +189,8 @@ function heartbeat() {
     at: new Date().toISOString(), pid: process.pid, source: src.endpoint.source, last_seq: state.last_checkpoint_seq, lag_s: lagS,
     rounds_opened_this_run: loop.roundsOpened, rounds_resolved_this_run: loop.roundsResolved, pending: loop.resolver.pendingCount,
     base_rate_p: Number(loop.base.p().toFixed(4)), base_rate_n: loop.base.count, gaps: state.gaps, resolutions_unpersisted: loop.unpersistedCount,
-    memory: walrus ? 'walrus' : 'local-dev', notes_total: notes.length, notes_queued: writer.queued,
+    memory: walrus ? 'walrus' : 'local-dev', notes_total: notes.length, notes_queued: writer.queued, notes_awaiting_confirmation: writer.awaitingCount,
+    notes_dropped_backend_switch: writer.droppedOtherBackend,
     notes_written_today: writer.state.written_today, notes_budget_today: writer.state.daily_budget, rate_limited_today: writer.state.rate_limited_today,
   });
   saveState();
