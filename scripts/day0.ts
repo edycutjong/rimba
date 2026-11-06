@@ -65,7 +65,7 @@ function analyze(path: string, outDir: string) {
   const trs: Tr[] = [];
   const signs = new Map<string, number[]>();
   let meta: Record<string, unknown> = {};
-  let firstTs = Infinity, lastTs = 0, cps = 0, errs = 0, firstSeq = '', lastSeq = '';
+  let firstTs = Infinity, lastTs = 0, cps = 0, errs = 0, firstSeq = '', lastSeq = '', missing = 0, prevSeq = -1n;
   for (const line of readFileSync(path, 'utf8').split('\n')) {
     if (!line) continue;
     const j = JSON.parse(line);
@@ -75,6 +75,9 @@ function analyze(path: string, outDir: string) {
       cps++;
       if (j.ts) { firstTs = Math.min(firstTs, j.ts); lastTs = Math.max(lastTs, j.ts); }
       firstSeq ||= j.seq; lastSeq = j.seq;
+      const sq = BigInt(j.seq);
+      if (prevSeq >= 0n && sq > prevSeq + 1n) missing += Number(sq - prevSeq - 1n);
+      if (sq > prevSeq) prevSeq = sq;
     } else if (j.k === 'tx') {
       let arr = signs.get(j.s);
       if (!arr) signs.set(j.s, (arr = []));
@@ -149,7 +152,7 @@ function analyze(path: string, outDir: string) {
     measured_at: new Date().toISOString(),
     network_source: meta.source,
     host: meta.host,
-    window: { checkpoints: cps, first_seq: firstSeq, last_seq: lastSeq, minutes: Number(minutes.toFixed(1)), stream_errors: errs },
+    window: { checkpoints: cps, first_seq: firstSeq, last_seq: lastSeq, minutes: Number(minutes.toFixed(1)), stream_errors: errs, checkpoints_missing: missing, coverage: Number((cps / (cps + missing)).toFixed(4)) },
     transfers: trs.length,
     transfers_per_min: Number((trs.length / minutes).toFixed(1)),
     coins_top: coins.slice(0, 8).map(([c, v]) => ({ coin: c, transfers: v.length })),
