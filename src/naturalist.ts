@@ -65,7 +65,7 @@ export function vote(recalled: RecalledNote[], base: number, o: VoteOptions): Ca
   return {
     p: Number(p.toFixed(4)),
     call: p >= 0.5 ? 'yes' : 'no',
-    cited: cited.slice(0, o.maxCited ?? 5).map(({ w: _w, ...c }) => c),
+    cited: cited.slice(0, o.maxCited ?? 20).map(({ w: _w, ...c }) => c),
     citedVoteP: wn > 0 ? wy / wn : null,
   };
 }

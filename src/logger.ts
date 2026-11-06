@@ -42,6 +42,15 @@ function tryWalrus(): WalrusNoteMemory | null {
   return mw ? new WalrusNoteMemory(mw, (m, ms, ok) => rpcLog(m, ms, ok, 'walrus'), cfg.naturalist?.recall_timeout_ms ?? 6000) : null;
 }
 walrus = tryWalrus();
+async function checkRelayer(why: string) {
+  try {
+    const c = await createMemwal(loadMemwal())?.compatibility();
+    log('walrus relayer compatibility', { why, ok: true, version: (c as { version?: string } | undefined)?.version ?? null });
+  } catch (e) {
+    log('walrus relayer compatibility', { why, ok: false, error: String(e).slice(0, 300) });
+  }
+}
+if (walrus) void checkRelayer('startup');
 // Circuit breaker: 3 recall failures in a row → abstain without calling for 60 s.
 let recallFailures = 0;
 let breakerUntil = 0;
@@ -60,13 +69,12 @@ const writer = new NoteWriter(() => walrus ?? local, (rec) => {
   loop.countNote(rec);
   log(rec.ok ? 'note stored' : 'note failed', { specimen: rec.specimen_id, backend: rec.backend, kind: rec.kind, blob_id: rec.blob_id, error: rec.error });
 }, prev?.writer ?? {}, { dailyBudget: cfg.notes?.daily_budget ?? 400 });
+writer.reconcile(notes);
 
 const loop = new CoreLoop({
   cfg, store, writer, notes,
-  memory: () => {
-    const m = memory();
-    return m;
-  },
+  memory,
+  onError: (msg) => log('loop error', { error: msg.slice(0, 500) }),
   emit: (ev, data) => {
     if (ev === 'sighting') {
       const s = data as Record<string, unknown>;
@@ -92,9 +100,14 @@ const state: State = {
   started_at: new Date().toISOString(),
   checkpoints_processed: prev?.checkpoints_processed ?? 0,
   gaps: prev?.gaps ?? 0,
-  writer: writer.state,
 };
-const saveState = () => writeJsonAtomic(files.state(), { ...state, writer: writer.state });
+const saveState = () => {
+  try {
+    writeJsonAtomic(files.state(), { ...state, writer: writer.snapshot() });
+  } catch (e) {
+    console.error(`state save failed: ${String(e)}`);
+  }
+};
 
 // ---------- start ----------
 const PIDFILE = process.env.RIMBA_PIDFILE ?? join(ROOT, '..', 'logs', 'logger.pid');
@@ -108,7 +121,14 @@ log('logger start', {
 
 const src = new CheckpointSource(ep, {
   onCheckpoint: async (cp, source) => {
-    await loop.onCheckpoint(cp, source);
+    try {
+      await loop.onCheckpoint(cp, source);
+    } catch (e) {
+      // A checkpoint we could not fully process is a gap: void every round whose window it may touch.
+      state.gaps++;
+      log('handler error — treating checkpoint as a gap', { seq: cp.sequence_number, error: String(e).slice(0, 500) });
+      loop.applyResolutions(loop.resolver.onGap(BigInt(cp.sequence_number!), Date.now()), source);
+    }
     state.last_checkpoint_seq = cp.sequence_number!;
     state.last_checkpoint_ts = Number(cp.summary?.timestamp?.seconds ?? 0) * 1000;
     state.network_source = source;
@@ -138,15 +158,33 @@ setInterval(() => {
   }
   if (!walrus) {
     walrus = tryWalrus();
+async function checkRelayer(why: string) {
+  try {
+    const c = await createMemwal(loadMemwal())?.compatibility();
+    log('walrus relayer compatibility', { why, ok: true, version: (c as { version?: string } | undefined)?.version ?? null });
+  } catch (e) {
+    log('walrus relayer compatibility', { why, ok: false, error: String(e).slice(0, 300) });
+  }
+}
+if (walrus) void checkRelayer('startup');
     if (walrus) {
       log('credential watcher: Walrus Memory credentials appeared — naturalist now recalls from and writes to Walrus Memory');
       loop.resetNoteCounts(notes);
+      void checkRelayer('credentials appeared');
     }
   }
 }, 60_000).unref();
 
 // Health heartbeat (30 s)
 setInterval(() => {
+  try {
+    heartbeat();
+  } catch (e) {
+    console.error(`heartbeat failed: ${String(e)}`);
+  }
+}, 30_000);
+
+function heartbeat() {
   const lagS = state.last_checkpoint_ts ? Math.round((Date.now() - state.last_checkpoint_ts) / 1000) : null;
   loop.prune(Date.now());
   writeJsonAtomic(files.health(), {
@@ -157,7 +195,7 @@ setInterval(() => {
     notes_written_today: writer.state.written_today, notes_budget_today: writer.state.daily_budget, rate_limited_today: writer.state.rate_limited_today,
   });
   saveState();
-}, 30_000);
+}
 
 function shutdown(sig: string) {
   log('logger stop', { signal: sig, last_seq: state.last_checkpoint_seq, notes_queued: writer.queued });
@@ -171,4 +209,11 @@ function shutdown(sig: string) {
   process.exit(0);
 }
 process.on('SIGTERM', () => shutdown('SIGTERM'));
+// A long-lived process: log and keep going rather than die on one bad promise.
+process.on('unhandledRejection', (e) => {
+  try { log('unhandledRejection', { error: String(e).slice(0, 500) }); } catch { /* ignore */ }
+});
+process.on('uncaughtException', (e) => {
+  try { log('uncaughtException', { error: String(e).slice(0, 500) }); } catch { /* ignore */ }
+});
 process.on('SIGINT', () => shutdown('SIGINT'));

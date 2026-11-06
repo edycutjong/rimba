@@ -19,6 +19,7 @@ export interface LoopDeps {
   notes: NoteRecord[];
   now?: () => number;
   emit?: (event: 'sighting' | 'call' | 'resolution' | 'note', data: unknown) => void;
+  onError?: (msg: string) => void;
 }
 
 const HISTORY_TTL_MS = 2 * 3600_000;
@@ -145,7 +146,13 @@ export class CoreLoop {
         resolving_ts: r.resolvedAtMs,
         network_source: source,
       };
-      this.d.store.resolveRound(row);
+      try {
+        this.d.store.resolveRound(row);
+      } catch (e) {
+        // never abort the batch: the other rounds in it were already removed from the resolver
+        this.d.onError?.(`resolution write failed for ${r.roundId}: ${String(e)}`);
+        continue;
+      }
       this.roundsResolved++;
       this.d.emit?.('resolution', row);
       if (r.outcome === null) continue;

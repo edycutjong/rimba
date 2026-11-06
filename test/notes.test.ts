@@ -95,3 +95,37 @@ describe('NoteWriter', () => {
     expect(w.queued).toBe(2);
   });
 });
+
+describe('NoteWriter durability', () => {
+  const t0 = Date.parse('2026-11-07T12:00:00Z');
+  it('reconciles specimen numbers and today\'s spend from the notes log after a restart', () => {
+    const w = new NoteWriter(() => new LocalNoteMemory(), () => {}, { next_specimen: 3, day: '2026-11-07', written_today: 1 }, { now: () => t0 });
+    w.reconcile([
+      { specimen_id: 'No.0007', created_at: '2026-11-07T10:00:00Z' },
+      { specimen_id: 'No.0008', created_at: '2026-11-07T11:00:00Z' },
+      { specimen_id: 'No.0002', created_at: '2026-11-06T23:00:00Z' },
+    ]);
+    expect(w.state.next_specimen).toBe(9);
+    expect(w.state.written_today).toBe(2);
+  });
+
+  it('persists the pending queue through a snapshot', () => {
+    const a = new NoteWriter(() => new LocalNoteMemory(), () => {}, {}, { now: () => t0 });
+    a.enqueue((sp) => outcomeNote(sp, SP, 15, 1, '1'), SP, 'R1', 'outcome', 1);
+    const b = new NoteWriter(() => new LocalNoteMemory(), () => {}, JSON.parse(JSON.stringify(a.snapshot())), { now: () => t0 });
+    expect(b.queued).toBe(1);
+    expect(b.state.next_specimen).toBe(2);
+  });
+
+  it('records a failure for every note the backend did not confirm, and an observer error does not re-queue', async () => {
+    const mem: NoteMemory = { kind: 'walrus', recall: async () => [], remember: async (texts) => [{ text: texts[0]!, ok: true, created_at: 'x' }] };
+    const out: NoteRecord[] = [];
+    const w = new NoteWriter(() => mem, (r) => { out.push(r); throw new Error('disk full'); }, {}, { now: () => t0 });
+    w.enqueue(() => 'a', SP, 'A', 'outcome', 1);
+    w.enqueue(() => 'b', SP, 'B', 'outcome', 1);
+    const recs = await w.flush();
+    expect(recs.map((r) => r.ok)).toEqual([true, false]);
+    expect(out).toHaveLength(2);
+    expect(w.queued).toBe(0);
+  });
+});

@@ -67,7 +67,7 @@ export class Resolver {
       const arr = this.bySender.get(t.sender);
       if (!arr) continue;
       for (const r of [...arr]) {
-        if (t.txDigest === r.txDigest || seq < r.checkpointSeq) continue;
+        if (t.txDigest === r.txDigest || seq <= r.checkpointSeq) continue; // only LATER checkpoints count (same rule live and on replay)
         if (t.timestampMs <= r.deadlineMs) {
           out.push({ roundId: r.roundId, outcome: 1, resolvingCheckpointSeq: seq.toString(), resolvingDigest: t.txDigest, resolvedAtMs: t.timestampMs, reason: 'moved' });
           this.remove(r);

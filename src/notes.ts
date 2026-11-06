@@ -84,7 +84,7 @@ export interface NoteRecord {
   error?: string;
 }
 
-interface Pending {
+export interface Pending {
   specimen: number;
   text: string;
   species: string;
@@ -101,6 +101,8 @@ export interface WriterState {
   daily_budget: number;
   rate_limited_today: number;
   next_write_at: number;
+  /** Notes waiting for budget — persisted so a restart does not drop them. */
+  queue?: Pending[];
 }
 
 export interface NoteWriterOptions {
@@ -141,7 +143,28 @@ export class NoteWriter {
       rate_limited_today: state.rate_limited_today ?? 0,
       next_write_at: state.next_write_at ?? 0,
     };
+    this.queue = [...(state.queue ?? [])];
     this.rollDay(now);
+  }
+
+  /**
+   * Reconcile with the notes log after a restart (state.json is saved every 30 s, the log on every
+   * write): specimen numbers never repeat and today's spend is never under-counted.
+   */
+  reconcile(log: Pick<NoteRecord, 'specimen_id' | 'created_at'>[]): void {
+    let maxId = 0, today = 0;
+    for (const n of log) {
+      maxId = Math.max(maxId, Number(n.specimen_id.replace(/^No\./, '')) || 0);
+      if (n.created_at.slice(0, 10) === this.state.day) today++;
+    }
+    for (const q of this.queue) maxId = Math.max(maxId, q.specimen);
+    this.state.next_specimen = Math.max(this.state.next_specimen, maxId + 1);
+    this.state.written_today = Math.max(this.state.written_today, today);
+  }
+
+  /** Serializable state including the pending queue. */
+  snapshot(): WriterState {
+    return { ...this.state, queue: [...this.queue] };
   }
 
   get queued(): number {
@@ -192,19 +215,9 @@ export class NoteWriter {
     this.queue.sort((a, b) => b.priority - a.priority || a.queuedAt - b.queuedAt);
     const batch = this.queue.splice(0, n);
     const mem = this.memory();
+    let stored: StoredNote[];
     try {
-      const stored: StoredNote[] = await mem.remember(batch.map((b) => b.text));
-      this.state.written_today += batch.length;
-      const out = stored.map((s, i) => {
-        const b = batch[i]!;
-        const rec: NoteRecord = {
-          specimen_id: specimenLabel(b.specimen), text: b.text, species: b.species, round_id: b.roundId, kind: b.kind,
-          backend: mem.kind, ok: s.ok, created_at: s.created_at, job_id: s.job_id, blob_id: s.blob_id, error: s.error,
-        };
-        this.onStored(rec);
-        return rec;
-      });
-      return out;
+      stored = await mem.remember(batch.map((b) => b.text));
     } catch (e) {
       this.queue.unshift(...batch);
       if (e instanceof RateLimitedError) {
@@ -214,9 +227,27 @@ export class NoteWriter {
       } else {
         this.state.next_write_at = this.opts.now() + 60_000;
       }
-      throw e;
-    } finally {
       this.flushing = false;
+      throw e;
     }
+    this.flushing = false;
+    this.state.written_today += batch.length;
+    // One record per submitted note, whatever the backend returned: a missing result is a failure.
+    const out = batch.map((b, i) => {
+      const s = stored[i];
+      return {
+        specimen_id: specimenLabel(b.specimen), text: b.text, species: b.species, round_id: b.roundId, kind: b.kind,
+        backend: mem.kind, ok: !!s && s.ok && s.text === b.text, created_at: s?.created_at ?? new Date(this.opts.now()).toISOString(),
+        job_id: s?.job_id, blob_id: s?.blob_id, error: s ? s.error : 'no result returned for this item',
+      } satisfies NoteRecord;
+    });
+    for (const rec of out) {
+      try {
+        this.onStored(rec);
+      } catch {
+        /* a failing observer (e.g. disk full) must not re-queue notes that are already stored */
+      }
+    }
+    return out;
   }
 }

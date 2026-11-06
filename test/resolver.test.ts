@@ -53,4 +53,10 @@ describe('Resolver', () => {
     expect(out).toEqual([expect.objectContaining({ roundId: 'T1', outcome: null, reason: 'gap' })]);
     expect(r.pending().map((p) => p.roundId)).toEqual(['T2']);
   });
+  it('ignores other txs by the sender in the sighting checkpoint (same answer live and on replay)', () => {
+    const r = new Resolver();
+    r.add(round('T1', 10n, 0));
+    expect(r.onCheckpoint(10n, 'CP10', 0, [{ sender: S, txDigest: 'T0', timestampMs: 0 }])).toEqual([]);
+    expect(r.pendingCount).toBe(1);
+  });
 });

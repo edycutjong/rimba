@@ -151,3 +151,19 @@ describe('RoundStore invariants', () => {
     expect(() => fresh().openRound(row('R', '2026-11-07T00:00:10Z', { cited_note_ids: ['No.0001'], cited_created_at: ['2026-11-07T00:00:11Z'] }))).toThrow(InvariantError);
   });
 });
+
+describe('CoreLoop resilience', () => {
+  it('a failed resolution write does not stop the other rounds in the batch from resolving', async () => {
+    const s = setup();
+    const errors: string[] = [];
+    await s.loop.onCheckpoint(cp(1, T0, [{ digest: 'T1', from: A, to: B, amount: BIG }, { digest: 'T9', from: C, to: B, amount: BIG }]), 'public-dev');
+    const orig = s.store.resolveRound.bind(s.store);
+    s.store.resolveRound = (row) => { if (row.round_id === 'T1') throw new Error('disk full'); orig(row); };
+    (s.loop as unknown as { d: { onError: (m: string) => void } }).d.onError = (m) => errors.push(m);
+    s.tick(16 * 60_000);
+    await s.loop.onCheckpoint(cp(2, T0 + 16 * 60_000, []), 'public-dev');
+    expect(s.store.resolution('T9')!.outcome).toBe(0);
+    expect(s.store.resolution('T1')).toBeUndefined();
+    expect(errors[0]).toMatch(/T1/);
+  });
+});
