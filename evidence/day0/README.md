@@ -15,7 +15,7 @@ Every number below is tagged `public-dev`; none of them feeds a headline. Raw nu
 
 ## Choices made from these numbers (`config/rimba.json`)
 - **Sighting thresholds** (≈ 2 sightings/min across the two busiest coins): SUI ≥ 282.91 SUI, USDC ≥ 70 USDC.
-  1,226 peer transfers in 62 min (19.8/min); SUI and USDC carry most of them.
+  1,226 peer transfers in 62 min (19.8/min); SUI (1,017) and USDC (91) carry 90% of them.
 - **Move rule:** the sender makes any transfer (any coin, any size) — the most direct reading of "moves again".
 - **Horizon H = 15 min** (46.1%, n = 89). H = 30 min (51.6%, n = 62) is nominally closer to 50%, but this collector
   did not backfill and saw 93.5% of checkpoints (1,023 missing after stream resets), which biases every rate
