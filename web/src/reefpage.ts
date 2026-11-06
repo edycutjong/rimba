@@ -40,7 +40,8 @@ export class ReefPage {
   constructor() {
     this.canvas = new ReefCanvas(document.getElementById('reef') as HTMLCanvasElement);
     this.canvas.onPick = (id) => this.pin(id);
-    this.card.addEventListener('click', (e) => {
+    // pointerdown as well as click: the card re-renders when a call resolves, which can swap a button between press and release
+    const onCard = (e: Event) => {
       const b = (e.target as HTMLElement).closest<HTMLElement>('[data-pick]');
       if (b) this.pin(b.dataset.pick!);
       if ((e.target as HTMLElement).closest('[data-unpin]')) {
@@ -48,7 +49,9 @@ export class ReefPage {
         store.holdUntil = 0;
         this.tick();
       }
-    });
+    };
+    this.card.addEventListener('pointerdown', onCard);
+    this.card.addEventListener('click', onCard);
     this.scoreEl.addEventListener('input', (e) => {
       const t = e.target as HTMLInputElement;
       if (t.id === 'maxd') store.maxD = Number(t.value);
@@ -137,7 +140,7 @@ export class ReefPage {
     const total = r.horizon_min * 60_000;
     const left = Math.max(0, Date.parse(r.created_at) + total - clock);
     const frac = open ? Math.min(1, Math.max(0, left / total)) : 0;
-    const key = `${r.round_id}|${open}|${store.pinned ?? ''}|${store.stack.map((s) => s.round_id).join(',')}|${store.open.size}`;
+    const key = `${r.round_id}|${open}|${store.pinned ?? ''}|${store.stack.map((s) => s.round_id).join(',')}`;
     const v = verdict(r);
     const head = `
       <p class="eyebrow"><span class="mono">${catNo(r.n)}</span> · ${esc(coinOf(r.coin_type))} sighting · <span class="mono">${esc(fmtAmount(r))}</span>
@@ -175,7 +178,7 @@ export class ReefPage {
           .join('')}</div>`
       : '';
     const pin = store.pinned ? `<button type="button" class="pill" data-unpin>Follow the newest call</button>` : '';
-    const more = `<p class="more">${store.open.size > (open ? 1 : 0) ? `${store.open.size - (open ? 1 : 0)} other call${store.open.size - (open ? 1 : 0) === 1 ? '' : 's'} open on the reef — click a creature or a stamp to read its card.` : ''} ${pin}</p>`;
+    const more = `<p class="more" id="more-open">${store.open.size > (open ? 1 : 0) ? `${store.open.size - (open ? 1 : 0)} other call${store.open.size - (open ? 1 : 0) === 1 ? '' : 's'} open on the reef — click a creature or a stamp to read its card.` : ''} ${pin}</p>`;
     if (key !== this.lastCardKey) {
       this.card.innerHTML = head + live + stack + more;
       this.lastCardKey = key;
@@ -184,6 +187,9 @@ export class ReefPage {
       const f = document.getElementById('bar-fill');
       const t = document.getElementById('count-t');
       if (f) f.style.width = `${(frac * 100).toFixed(1)}%`;
+      const mo = document.getElementById('more-open');
+      const others = store.open.size - 1;
+      if (mo && !store.pinned) mo.textContent = others > 0 ? `${others} other call${others === 1 ? '' : 's'} open on the reef — click a creature or a stamp to read its card.` : '';
       if (t) t.textContent = mmss(left);
     }
   }
