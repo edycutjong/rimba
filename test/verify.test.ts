@@ -53,6 +53,10 @@ describe('online re-derivation (pure parts)', () => {
     expect(checkSighting(call(), tx(D1, '10', T0, 499n)).ok).toBe(false);
     expect(checkYes(call(), res(), tx(D2, '11', T0 + 60_000), 'any_transfer').ok).toBe(true);
     expect(checkYes(call(), res(), tx(D2, '11', T0 + 16 * 60_000), 'any_transfer').ok).toBe(false);
+    // above_threshold_transfer: the YES move itself must clear the threshold, and the thresholds are required
+    expect(checkYes(call(), res(), tx(D2, '11', T0 + 60_000, 1n), 'above_threshold_transfer', new Map([[SUI, 100n]])).ok).toBe(false);
+    expect(checkYes(call(), res(), tx(D2, '11', T0 + 60_000, 500n), 'above_threshold_transfer', new Map([[SUI, 100n]])).ok).toBe(true);
+    expect(checkYes(call(), res(), tx(D2, '11', T0 + 60_000, 500n), 'above_threshold_transfer').ok).toBe(false);
   });
 
   it('checks the NO deadline boundary', () => {
@@ -70,7 +74,11 @@ describe('online re-derivation (pure parts)', () => {
     ];
     const th = new Map([[SUI, 100n]]);
     const ok = replayWindow(cps, [call()], new Map([[D1, res()]]), { move_rule: 'any_transfer', horizon_min: 15 }, th);
-    expect(ok).toMatchObject({ compared: 1, matched: 1, sightings_found: 1 });
+    expect(ok).toMatchObject({ compared: 1, matched: 1, sightings_found: 1, sightings_missing: [], holes: 0, oracle_disagreements: [] });
+    // a hole in the checkpoint array and a sighting that is not on chain are reported, never silently passed
+    const holed = replayWindow([cps[0]!, { ...cps[1]!, sequence_number: '13' }], [call(), call({ round_id: 'GHOST', tx_digest: 'GHOST' })], new Map([[D1, res()]]), { move_rule: 'any_transfer', horizon_min: 15 }, th);
+    expect(holed.holes).toBe(2);
+    expect(holed.sightings_missing).toEqual(['GHOST']);
     const bad = replayWindow(cps, [call()], new Map([[D1, res({ outcome: 0, resolving_digest: 'CPX' })]]), { move_rule: 'any_transfer', horizon_min: 15 }, th);
     expect(bad.matched).toBe(0);
     expect(bad.mismatches).toHaveLength(1);

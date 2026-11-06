@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { thresholdMap } from '../src/loop.js';
 import type { NoteRecord } from '../src/notes.js';
 import { chooseEndpoint, getCheckpoint, getTransaction, makeClients, type RawCheckpoint } from '../src/stream/client.js';
-import { files, loadConfig, readJsonl, ROOT, type CallRow, type ResolutionRow } from '../src/store.js';
+import { files, loadConfig, malformedLines, readJsonl, ROOT, type CallRow, type ResolutionRow } from '../src/store.js';
 import { checkNoBoundary, checkSighting, checkYes, offlineChecks, replayWindow } from '../src/verify.js';
 
 const argv = process.argv.slice(2);
@@ -25,7 +25,11 @@ const report: Record<string, unknown> = { generated_at: new Date().toISOString()
 
 const off = offlineChecks(calls, resolutions, notes);
 report.offline = off;
-const offFailed = Object.values(off.checks).reduce((a, c) => a + c.failed, 0);
+// ledger integrity: any line that is not valid JSON is corruption (a torn tail is cut off by the logger at open)
+const malformed = { calls: malformedLines(files.calls()), resolutions: malformedLines(files.resolutions()), notes: malformedLines(files.notes()) };
+report.ledger_malformed_lines = malformed;
+const offFailed = Object.values(off.checks).reduce((a, c) => a + c.failed, 0) + malformed.calls + malformed.resolutions + malformed.notes;
+console.log(`  ${malformed.calls + malformed.resolutions + malformed.notes ? 'FAIL' : 'ok  '} ledgers parse: malformed lines calls ${malformed.calls} · resolutions ${malformed.resolutions} · notes ${malformed.notes}`);
 console.log(`offline: ${off.rounds} calls, ${off.resolutions} resolutions`);
 for (const [k, v] of Object.entries(off.checks)) console.log(`  ${v.failed ? 'FAIL' : 'ok  '} ${k}: ${v.checked - v.failed}/${v.checked}`);
 for (const f of off.findings.slice(0, 10)) console.log(`    ✗ ${f.check} ${f.round_id.slice(0, 12)} — ${f.detail}`);
@@ -55,7 +59,7 @@ if (!argv.includes('--offline')) {
     const r = resById.get(c.round_id)!;
     const s = checkSighting(c, (await getTransaction(clients, c.tx_digest).catch(() => ({ transaction: undefined }))).transaction);
     let o: { ok: boolean; detail: string };
-    if (r.outcome === 1) o = checkYes(c, r, (await getTransaction(clients, r.resolving_digest).catch(() => ({ transaction: undefined }))).transaction, cfg.move_rule);
+    if (r.outcome === 1) o = checkYes(c, r, (await getTransaction(clients, r.resolving_digest).catch(() => ({ transaction: undefined }))).transaction, cfg.move_rule, thresholdMap(cfg));
     else o = checkNoBoundary(c, r, await cpAt(r.resolving_checkpoint_seq), await cpAt((BigInt(r.resolving_checkpoint_seq) - 1n).toString()));
     if (s.ok) sOk++;
     if (o.ok) oOk++;
@@ -103,8 +107,9 @@ if (!argv.includes('--offline')) {
     const inWindow = sameQ.filter((c) => BigInt(c.checkpoint_seq) >= first && BigInt(c.checkpoint_seq) <= BigInt(cps[cps.length - 1]!.sequence_number!));
     const rr = replayWindow(cps, inWindow, resById, cfg, thresholdMap(cfg));
     report.replay = { first_seq: first.toString(), last_seq: cps[cps.length - 1]!.sequence_number, checkpoints: cps.length, ms: Date.now() - t0, rounds_in_window: inWindow.length, ...rr };
-    onlineFailed += rr.compared - rr.matched;
-    console.log(`replay of ${cps.length} checkpoints ${first}..${cps[cps.length - 1]!.sequence_number} (${Math.round((Date.now() - t0) / 1000)} s): sightings re-found ${rr.sightings_found}/${inWindow.length} · outcomes matched ${rr.matched}/${rr.compared}`);
+    // an empty or holed replay, a sighting not re-found, or an oracle disagreement is a failure, never a pass
+    onlineFailed += rr.compared - rr.matched + rr.sightings_missing.length + rr.oracle_disagreements.length + rr.holes + (rr.compared === 0 ? 1 : 0);
+    console.log(`replay of ${cps.length} checkpoints ${first}..${cps[cps.length - 1]!.sequence_number} (${Math.round((Date.now() - t0) / 1000)} s): sightings re-found ${rr.sightings_found}/${inWindow.length} · outcomes matched ${rr.matched}/${rr.compared} · independent oracle agrees ${rr.compared - rr.oracle_disagreements.length}/${rr.compared} · holes ${rr.holes}${rr.compared === 0 ? ' · FAIL: nothing compared' : ''}`);
     for (const m of rr.mismatches.slice(0, 10)) console.log(`  ✗ ${m.round_id.slice(0, 12)} local ${m.local} chain ${m.chain} — ${m.detail}`);
   }
   clients.close();

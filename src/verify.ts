@@ -103,13 +103,19 @@ export function checkSighting(c: CallRow, tx: RawTransaction | undefined): { ok:
 }
 
 /** A YES: the resolving tx is a transfer by the same sender, after the sighting, inside the window. */
-export function checkYes(c: CallRow, r: ResolutionRow, tx: RawTransaction | undefined, rule: RimbaConfig['move_rule']): { ok: boolean; detail: string } {
+export function checkYes(c: CallRow, r: ResolutionRow, tx: RawTransaction | undefined, rule: RimbaConfig['move_rule'], thresholds?: Map<string, bigint>): { ok: boolean; detail: string } {
   if (!tx) return { ok: false, detail: 'resolving tx not found' };
+  if (rule === 'above_threshold_transfer' && !thresholds) return { ok: false, detail: 'above_threshold_transfer needs the thresholds to verify' };
   const ts = tsToMs(tx.timestamp);
   const deadline = c.checkpoint_ts + c.horizon_min * 60_000;
   const moved = rule === 'any_signed_tx'
     ? tx.effects?.status?.success !== false && (tx.transaction?.sender ?? '').toLowerCase().replace(/^0x0*/, '') === c.sender.replace(/^0x0*/, '')
-    : decodeTransaction(tx, String(tx.checkpoint ?? ''), '', ts).some((t) => t.sender === c.sender);
+    : decodeTransaction(tx, String(tx.checkpoint ?? ''), '', ts).some((t) => {
+        if (t.sender !== c.sender) return false;
+        if (rule !== 'above_threshold_transfer') return true;
+        const th = thresholds!.get(t.coinType);
+        return th !== undefined && th > 0n && t.amountRaw >= th;
+      });
   const ok = moved && ts <= deadline && BigInt(String(tx.checkpoint ?? '0')) > BigInt(c.checkpoint_seq) && String(tx.checkpoint) === r.resolving_checkpoint_seq;
   return { ok, detail: ok ? 'YES re-derived' : `moved=${moved} ts=${ts} deadline=${deadline} cp=${tx.checkpoint}` };
 }
@@ -129,6 +135,29 @@ export interface ReplayResult {
   matched: number;
   mismatches: { round_id: string; local: 0 | 1 | null; chain: 0 | 1 | null; detail: string }[];
   sightings_found: number;
+  /** Rounds in the window whose sighting was NOT re-found on chain. */
+  sightings_missing: string[];
+  /** Missing sequence numbers inside the supplied checkpoint array (a replay over a hole proves nothing). */
+  holes: number;
+  /** Rounds where the independent oracle and the Resolver disagree (a shared-interpretation bug would show here). */
+  oracle_disagreements: string[];
+}
+
+/**
+ * Independent outcome oracle for one round, written without the Resolver: scan the later checkpoints in
+ * order; YES at the first activity by the sender stamped at or before the deadline, NO at the first
+ * checkpoint stamped past it, undefined if the window does not close inside `cps`.
+ */
+export function oracleOutcome(c: CallRow, cps: { seq: bigint; ts: number; digest: string; acts: { sender: string; txDigest: string; timestampMs: number }[] }[], horizonMin: number): { outcome: 0 | 1; seq: string; digest: string } | undefined {
+  const start = BigInt(c.checkpoint_seq);
+  const deadline = c.checkpoint_ts + horizonMin * 60_000;
+  for (const cp of cps) {
+    if (cp.seq <= start) continue;
+    const hit = cp.acts.find((a) => a.sender === c.sender && a.txDigest !== c.tx_digest && a.timestampMs <= deadline);
+    if (hit) return { outcome: 1, seq: cp.seq.toString(), digest: hit.txDigest };
+    if (cp.ts > deadline) return { outcome: 0, seq: cp.seq.toString(), digest: cp.digest };
+  }
+  return undefined;
 }
 
 /**
@@ -146,22 +175,35 @@ export function replayWindow(cps: RawCheckpoint[], calls: CallRow[], resolutions
   }
   const chain = new Map<string, { outcome: 0 | 1 | null; seq: string; digest: string }>();
   let sightingsFound = 0;
+  const missing: string[] = [];
+  let holes = 0;
+  let prevSeq: bigint | null = null;
+  const flat: Parameters<typeof oracleOutcome>[1] = [];
   for (const cp of cps) {
     const seq = BigInt(cp.sequence_number!);
+    if (prevSeq !== null && seq !== prevSeq + 1n) holes += Number(seq - prevSeq - 1n) || 1;
+    prevSeq = seq;
     const ts = tsToMs(cp.summary?.timestamp);
     const transfers = decodeCheckpoint(cp);
     const sightings = sightingsOf(transfers, thresholds);
-    for (const r of resolver.onCheckpoint(seq, cp.digest ?? '', ts, activitiesOf(cfg.move_rule, cp, transfers, sightings))) {
+    const acts = activitiesOf(cfg.move_rule, cp, transfers, sightings);
+    flat.push({ seq, ts, digest: cp.digest ?? '', acts });
+    for (const r of resolver.onCheckpoint(seq, cp.digest ?? '', ts, acts)) {
       chain.set(r.roundId, { outcome: r.outcome, seq: r.resolvingCheckpointSeq, digest: r.resolvingDigest });
     }
     for (const c of bySeq.get(cp.sequence_number!) ?? []) {
       const s = sightings.find((x) => x.txDigest === c.tx_digest);
       if (s && s.sender === c.sender) sightingsFound++;
+      else missing.push(c.round_id);
       resolver.add({ roundId: c.round_id, sender: c.sender, txDigest: c.tx_digest, checkpointSeq: seq, timestampMs: c.checkpoint_ts, deadlineMs: c.checkpoint_ts + cfg.horizon_min * 60_000 });
     }
   }
-  const out: ReplayResult = { compared: 0, matched: 0, mismatches: [], sightings_found: sightingsFound };
+  const out: ReplayResult = { compared: 0, matched: 0, mismatches: [], sightings_found: sightingsFound, sightings_missing: missing, holes, oracle_disagreements: [] };
+  const callById = new Map(calls.map((c) => [c.round_id, c]));
   for (const [id, ch] of chain) {
+    const c = callById.get(id);
+    const o = c && ch.outcome !== null ? oracleOutcome(c, flat, cfg.horizon_min) : undefined;
+    if (ch.outcome !== null && (!o || o.outcome !== ch.outcome || o.seq !== ch.seq || o.digest !== ch.digest)) out.oracle_disagreements.push(id);
     const local = resolutions.get(id);
     if (!local || local.outcome === null) continue; // void locally (gap) — nothing to compare
     out.compared++;
