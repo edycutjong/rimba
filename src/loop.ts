@@ -23,6 +23,11 @@ export interface LoopDeps {
 }
 
 const HISTORY_TTL_MS = 2 * 3600_000;
+
+export interface PaceState {
+  last_move: [string, number][];
+  pairs: string[];
+}
 const r6 = (x: number) => Number(x.toFixed(6));
 
 /** The largest above-threshold transfer in a tx becomes that tx's sighting (one round per tx). */
@@ -311,6 +316,18 @@ export class CoreLoop {
     this.roundsOpened++;
     this.safeEmit('call', row);
   
+  }
+
+  /** What the stream has taught the species slots that is not in the call log: pace and every counterparty pair. */
+  paceSnapshot(): PaceState {
+    return { last_move: [...this.lastMove.entries()], pairs: [...this.pairs] };
+  }
+
+  /** Restore after a restart (merging, never overwriting newer knowledge), then drop entries past the TTL. */
+  restorePace(p: Partial<PaceState> | null, nowTs: number): void {
+    for (const [k, v] of p?.last_move ?? []) if (typeof v === 'number') this.lastMove.set(k, Math.max(this.lastMove.get(k) ?? 0, v));
+    for (const k of p?.pairs ?? []) this.pairs.add(k);
+    this.prune(nowTs);
   }
 
   /** Drop stale history so a long-running logger stays small. */

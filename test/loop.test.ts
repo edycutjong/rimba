@@ -105,6 +105,22 @@ describe('CoreLoop — sighting → recall → call → resolve → remember', (
     expect(s.store.resolution('T1')).toBeUndefined();
   });
 
+  it('pace and counterparty pairs survive a restart through the pace snapshot', async () => {
+    const s = setup();
+    await s.loop.onCheckpoint(cp(1, T0, [{ digest: 'T1', from: A, to: B, amount: BIG }]), 'public-dev');
+    const snap = JSON.parse(JSON.stringify(s.loop.paceSnapshot()));
+    const restart = async (pace: unknown) => {
+      const mem = new LocalNoteMemory([], () => T0);
+      const store2 = new RoundStore(join(s.dir, `c-${!!pace}.jsonl`), join(s.dir, `r-${!!pace}.jsonl`));
+      const l = new CoreLoop({ cfg, store: store2, writer: new NoteWriter(() => mem, () => {}), memory: () => mem, notes: [], now: () => T0 + 60_000 });
+      if (pace) l.restorePace(pace as never, T0 + 60_000);
+      await l.onCheckpoint(cp(2, T0 + 60_000, [{ digest: 'T2', from: A, to: B, amount: BIG }]), 'public-dev');
+      return store2.call('T2')!.species!;
+    };
+    expect(await restart(null)).toMatch(/new counterparty, no earlier move seen/);
+    expect(await restart(snap)).toMatch(/repeat counterparty, moved within 2 min/);
+  });
+
   it('rebuilds pending rounds and opponents from disk after a restart', async () => {
     const s = setup();
     await s.loop.onCheckpoint(cp(1, T0, [{ digest: 'T1', from: A, to: B, amount: BIG }]), 'public-dev');

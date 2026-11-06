@@ -17,6 +17,8 @@ export const files = {
   notes: () => join(DATA_DIR, 'notes.jsonl'),
   state: () => join(DATA_DIR, 'state.json'),
   health: () => join(DATA_DIR, 'health.json'),
+  /** Pace + counterparty memory of the stream (lastMove, sender>recipient pairs), saved every 5 min and on stop. */
+  pace: () => join(DATA_DIR, 'pace.json'),
 };
 
 export function appendJsonl(path: string, row: unknown): void {

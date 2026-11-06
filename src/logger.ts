@@ -6,7 +6,7 @@
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadMemwal, loadTatum } from './config.js';
-import { CoreLoop } from './loop.js';
+import { CoreLoop, type PaceState } from './loop.js';
 import { LocalNoteMemory, type NoteMemory } from './memory/backend.js';
 import { createMemwal, WalrusNoteMemory } from './memory/memwal.js';
 import { NoteWriter, type NoteRecord, type WriterState } from './notes.js';
@@ -123,6 +123,17 @@ log('logger start', {
   ...(store.tornBytes.calls || store.tornBytes.resolutions ? { torn_tail_repaired_bytes: store.tornBytes } : {}),
 });
 
+// pace + counterparties survive a restart (otherwise every sender reads "no earlier move seen" for up to 2 h)
+loop.restorePace(readJson<PaceState>(files.pace()), Date.now());
+const savePace = () => {
+  try {
+    writeJsonAtomic(files.pace(), loop.paceSnapshot());
+  } catch (e) {
+    console.error(`pace save failed: ${String(e)}`);
+  }
+};
+let beats = 0;
+
 const src = new CheckpointSource(ep, {
   onCheckpoint: async (cp, source) => {
     try {
@@ -177,6 +188,7 @@ setInterval(() => {
 setInterval(() => {
   try {
     heartbeat();
+    if (++beats % 10 === 0) savePace(); // every 5 min
   } catch (e) {
     console.error(`heartbeat failed: ${String(e)}`);
   }
@@ -199,6 +211,7 @@ function heartbeat() {
 function shutdown(sig: string) {
   log('logger stop', { signal: sig, last_seq: state.last_checkpoint_seq, notes_queued: writer.queued });
   saveState();
+  savePace();
   src.stop();
   try {
     if (existsSync(PIDFILE) && readFileSync(PIDFILE, 'utf8').trim() === String(process.pid)) unlinkSync(PIDFILE);
