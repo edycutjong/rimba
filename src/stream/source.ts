@@ -31,6 +31,7 @@ export class CheckpointSource {
   private queue: Promise<void> = Promise.resolve();
   private readonly maxBackfill: number;
   private streamOpenedAt = 0;
+  private deliveredSinceOpen = 0;
 
   constructor(endpoint: Endpoint, private ev: SourceEvents, opts: SourceOptions = {}) {
     this.clients = makeClients(endpoint);
@@ -72,10 +73,12 @@ export class CheckpointSource {
     const st = subscribeCheckpoints(this.clients);
     this.stream = st;
     this.streamOpenedAt = Date.now();
+    this.deliveredSinceOpen = 0;
     this.ev.onStatus?.(`stream open on ${this.clients.endpoint.host} (${this.clients.endpoint.source})`);
     st.on('data', (r: RawSubscribeResponse) => {
       const cp = r.checkpoint;
       if (!cp?.sequence_number) return;
+      this.deliveredSinceOpen++;
       this.queue = this.queue.then(() => this.handle(cp)).catch((e) => this.ev.onStatus?.(`handler error: ${String(e)}`));
     });
     st.on('error', (e: Error & { code?: number }) => {
@@ -85,8 +88,9 @@ export class CheckpointSource {
       this.ev.onStatus?.(`stream error ${e.code}: ${e.message} — reconnect in ${this.backoffMs} ms`);
       this.stream = null;
       const wait = this.backoffMs;
-      // A stream that stayed up for a minute was healthy; reset backoff.
-      this.backoffMs = Date.now() - this.streamOpenedAt > 60_000 ? 1000 : Math.min(30_000, this.backoffMs * 2);
+      // A stream that delivered checkpoints was healthy (the public node resets every ~30 s);
+      // only back off exponentially when connects fail outright.
+      this.backoffMs = this.deliveredSinceOpen > 0 ? 1000 : Math.min(30_000, this.backoffMs * 2);
       setTimeout(() => this.open(), wait);
     });
     st.on('end', () => {
