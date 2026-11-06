@@ -1,0 +1,85 @@
+{
+  "measured_at": "2026-11-06T20:50:03.211Z",
+  "relayer": "https://relayer.memory.walrus.xyz",
+  "namespace": "field-notes",
+  "health": {
+    "status": "ok",
+    "version": "0.1.0",
+    "relayerVersion": "0.1.0",
+    "apiVersion": "1.0.0",
+    "minSupportedSdk": {
+      "typescript": "0.0.4",
+      "python": "0.1.0",
+      "mcp": "0.0.1"
+    },
+    "featureFlags": {
+      "auth.accountBoundNonce": true,
+      "auth.sealSessionHeader": true,
+      "config.publicDeploymentMetadata": true,
+      "remember.asyncJobs": true,
+      "remember.bulk": true,
+      "runtime.versionEndpoint": true
+    },
+    "deprecations": [
+      {
+        "surface": "header:x-delegate-key",
+        "deprecatedSince": "1.0.0",
+        "removalApiVersion": "2.0.0",
+        "guidance": "Use x-seal-session for relayer-managed SEAL decrypt flows; manual-mode requests should send no decrypt credential."
+      },
+      {
+        "surface": "env:SEAL_KEY_SERVERS",
+        "deprecatedSince": "1.0.0",
+        "removalApiVersion": "2.0.0",
+        "guidance": "Use SEAL_SERVER_CONFIGS so independent and committee key-server configs share one JSON schema."
+      }
+    ],
+    "build": {
+      "commit": "b01ff93fa720918054e68c0cecbd6ab3bb1b95c6"
+    },
+    "mode": "production",
+    "prompt_versions": {
+      "extract": "extract.v7",
+      "ask": "ask.v2"
+    },
+    "write_ready": true,
+    "writes": "ok"
+  },
+  "health_ms": 144,
+  "compatibility": {
+    "relayerVersion": "0.1.0",
+    "apiVersion": "1.0.0",
+    "minSupportedSdk": {
+      "typescript": "0.0.4",
+      "python": "0.1.0",
+      "mcp": "0.0.1"
+    },
+    "featureFlags": {
+      "auth.accountBoundNonce": true,
+      "auth.sealSessionHeader": true,
+      "config.publicDeploymentMetadata": true,
+      "remember.asyncJobs": true,
+      "remember.bulk": true,
+      "runtime.versionEndpoint": true
+    },
+    "deprecations": [
+      {
+        "surface": "header:x-delegate-key",
+        "deprecatedSince": "1.0.0",
+        "removalApiVersion": "2.0.0",
+        "guidance": "Use x-seal-session for relayer-managed SEAL decrypt flows; manual-mode requests should send no decrypt credential."
+      },
+      {
+        "surface": "env:SEAL_KEY_SERVERS",
+        "deprecatedSince": "1.0.0",
+        "removalApiVersion": "2.0.0",
+        "guidance": "Use SEAL_SERVER_CONFIGS so independent and committee key-server configs share one JSON schema."
+      }
+    ],
+    "build": {
+      "commit": "b01ff93fa720918054e68c0cecbd6ab3bb1b95c6"
+    }
+  },
+  "kill_test_5": "pending creds",
+  "kill_test_6": "pending creds"
+}
