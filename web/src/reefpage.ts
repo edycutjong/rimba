@@ -94,7 +94,9 @@ export class ReefPage {
     store.open.delete(r.round_id);
     this.canvas.resolve(r, instant);
     if (!instant || verdict(r)) {
-      store.stack = [r, ...store.stack.filter((x) => x.round_id !== r.round_id)].slice(0, 12);
+      store.stack = [r, ...store.stack.filter((x) => x.round_id !== r.round_id)]
+        .sort((a, b) => Date.parse(b.resolution?.resolved_at ?? '') - Date.parse(a.resolution?.resolved_at ?? ''))
+        .slice(0, 12);
     }
     if (!instant && store.focus === r.round_id) store.holdUntil = performance.now() + HOLD_MS;
     if (!instant) this.announce.textContent = `Sighting ${catNo(r.n)} resolved by checkpoint ${r.resolution?.resolving_checkpoint_seq}: call ${verdict(r) ?? 'void'}.`;
@@ -135,7 +137,7 @@ export class ReefPage {
           .map((r) => {
             const v = verdict(r);
             const res = r.resolution!;
-            return `<li><span class="mini-stamp mini-stamp--${v ?? 'none'}">${v === 'right' ? 'RIGHT' : v === 'wrong' ? 'WRONG' : 'NO CALL'}</span> <span class="mono">${catNo(r.n)}</span> <span class="logs">${esc(callLine(r))} → ${res.outcome === 1 ? 'moved again' : 'did not move'}</span> <a class="link-quiet mono" href="${suiscanCheckpoint(res.resolving_checkpoint_seq)}" target="_blank" rel="noopener">#${esc(res.resolving_checkpoint_seq)} ↗</a></li>`;
+            return `<li><span class="mini-stamp mini-stamp--${v ?? 'none'}">${v === 'right' ? 'RIGHT' : v === 'wrong' ? 'WRONG' : 'NO CALL'}</span> <span class="mono">${catNo(r.n)}</span> <span class="logs">${v === 'abstain' ? `no call, not scored (chain: ${res.outcome === 1 ? 'moved again' : 'did not move'})` : `${esc(callLine(r))} → ${res.outcome === 1 ? 'moved again' : 'did not move'}`}</span> <a class="link-quiet mono" href="${suiscanCheckpoint(res.resolving_checkpoint_seq)}" target="_blank" rel="noopener">#${esc(res.resolving_checkpoint_seq)} ↗</a></li>`;
           })
           .join('')}</ol>`
       : '';
@@ -257,10 +259,10 @@ export class ReefPage {
     return `<tr><th scope="row">${label}</th><td class="mono">${c.n}</td>${vals.map(cellHtml).join('')}</tr>`;
   }
 
-  private skill(c: Cell): string {
+  private skill(c: Cell, who: string): string {
     if (c.skill_vs_base === null) return '';
     const s = c.skill_vs_base * 100;
-    return s >= 0 ? `Memory beats the base rate by ${s.toFixed(1)}%.` : `Memory currently trails the base rate by ${Math.abs(s).toFixed(1)}% — reported as logged.`;
+    return s >= 0 ? `${who}: memory beats the base rate by ${s.toFixed(1)}%.` : `${who}: memory trails the base rate by ${Math.abs(s).toFixed(1)}% — reported as logged.`;
   }
 
   private sparkline(): string {
@@ -338,7 +340,7 @@ export class ReefPage {
     const nv = card.never_seen;
     const csv = esc(store.status?.csv_url ?? 'data/rounds.csv');
     this.strip.innerHTML = nv.n
-      ? `<b>Never-seen wallets</b> <span>N <span class="mono">${nv.n}</span></span> <span>memory <a class="num ${nv.brier_memory! <= Math.min(nv.brier_base!, nv.brier_freq!) ? 'num--best' : ''}" href="${csv}" target="_blank" rel="noopener">${b4(nv.brier_memory)}</a></span> <span>base rate <a class="num" href="${csv}" target="_blank" rel="noopener">${b4(nv.brier_base)}</a></span> <span>frequency <a class="num" href="${csv}" target="_blank" rel="noopener">${b4(nv.brier_freq)}</a></span> ${hasHead ? '' : '<span class="tag tag--dev">Dev data</span>'} <span class="strip-v">${esc(this.skill(nv))}</span>`
+      ? `<b>Never-seen wallets</b> <span>N <span class="mono">${nv.n}</span></span> <span>memory <a class="num ${nv.brier_memory! <= Math.min(nv.brier_base!, nv.brier_freq!) ? 'num--best' : ''}" href="${csv}" target="_blank" rel="noopener">${b4(nv.brier_memory)}</a></span> <span>base rate <a class="num" href="${csv}" target="_blank" rel="noopener">${b4(nv.brier_base)}</a></span> <span>frequency <a class="num" href="${csv}" target="_blank" rel="noopener">${b4(nv.brier_freq)}</a></span> ${hasHead ? '' : '<span class="tag tag--dev">Dev data</span>'} <span class="strip-v">${esc(this.skill(nv, 'Never-seen wallets'))}</span>`
       : '';
     this.scoreEl.innerHTML = `
       <h2 id="score-h" class="sec-h">Scorecard ${label}</h2>
@@ -346,7 +348,7 @@ export class ReefPage {
         <thead><tr><th scope="col"><span class="sr-only">Group</span></th><th scope="col">N</th><th scope="col">Memory</th><th scope="col">Base rate</th><th scope="col">Frequency table</th></tr></thead>
         <tbody>${this.cellRow('Never-seen wallets', card.never_seen)}${this.cellRow('All rounds', card.all)}</tbody>
       </table>
-      <p class="skill">${esc(this.skill(card.never_seen.n ? card.never_seen : card.all))} <span class="muted">Brier: lower is better; always saying 50% scores 0.25. Click any number for rounds.csv.</span></p>
+      <p class="skill">${esc(this.skill(card.all, 'All rounds'))} <span class="muted">Brier: lower is better; always saying 50% scores 0.25. Click any number for rounds.csv.</span></p>
       ${note}${this.sparkline()}
       <details class="judge" id="judge"${wasOpen ? ' open' : ''}>
         <summary>Judge controls <span class="muted">— stress the naturalist</span></summary>
