@@ -120,6 +120,8 @@ export interface WriterState {
   queue?: Pending[];
   /** Accepted-but-unconfirmed writes — persisted so a restart keeps polling them. */
   awaiting?: Awaiting[];
+  /** The backend whose spend `written_today` / `daily_budget` measure. Absent = local-dev. */
+  backend?: NoteMemory['kind'];
 }
 
 export interface NoteWriterOptions {
@@ -144,6 +146,8 @@ export class NoteWriter {
   private flushing = false;
   /** Queued notes dropped because the memory backend changed since they were queued (cold or hot switch). */
   droppedOtherBackend = 0;
+  /** Today's records per backend, from the notes log (reconcile) — seeds the spend after a backend switch. */
+  private todayByBackend = new Map<string, number>();
   readonly opts: Required<NoteWriterOptions>;
   state: WriterState;
 
@@ -162,6 +166,7 @@ export class NoteWriter {
       daily_budget: state.daily_budget ?? this.opts.dailyBudget,
       rate_limited_today: state.rate_limited_today ?? 0,
       next_write_at: state.next_write_at ?? 0,
+      backend: state.backend ?? 'local-dev',
     };
     this.queue = [...(state.queue ?? [])];
     this.awaiting = [...(state.awaiting ?? [])];
@@ -172,12 +177,15 @@ export class NoteWriter {
    * Reconcile with the notes log after a restart (state.json is saved every 30 s, the log on every
    * write): specimen numbers never repeat and today's spend is never under-counted.
    */
-  reconcile(log: Pick<NoteRecord, 'specimen_id' | 'created_at'>[]): void {
-    let maxId = 0, today = 0;
+  reconcile(log: Pick<NoteRecord, 'specimen_id' | 'created_at' | 'backend'>[]): void {
+    let maxId = 0;
+    this.todayByBackend.clear();
     for (const n of log) {
       maxId = Math.max(maxId, Number(n.specimen_id.replace(/^No\./, '')) || 0);
-      if (n.created_at.slice(0, 10) === this.state.day) today++;
+      if (n.created_at.slice(0, 10) === this.state.day) this.todayByBackend.set(n.backend, (this.todayByBackend.get(n.backend) ?? 0) + 1);
     }
+    // spend is per backend: a day paced out on the local-dev stand-in must not block Walrus writes
+    const today = this.todayByBackend.get(this.state.backend ?? 'local-dev') ?? 0;
     for (const q of [...this.queue, ...this.awaiting]) maxId = Math.max(maxId, q.specimen);
     this.state.next_specimen = Math.max(this.state.next_specimen, maxId + 1);
     this.state.written_today = Math.max(this.state.written_today, today);
@@ -242,6 +250,14 @@ export class NoteWriter {
     const now = this.opts.now();
     if (this.flushing) return [];
     const mem = this.memory();
+    if ((this.state.backend ?? 'local-dev') !== mem.kind) {
+      // new backend, fresh spend: its own writes today, the configured budget, no inherited backoff
+      this.state.backend = mem.kind;
+      this.state.written_today = this.todayByBackend.get(mem.kind) ?? 0;
+      this.state.daily_budget = this.opts.dailyBudget;
+      this.state.rate_limited_today = 0;
+      this.state.next_write_at = 0;
+    }
     // one rule for hot and cold switches: a note queued under another backend is dropped, never carried over
     const before = this.queue.length;
     this.queue = this.queue.filter((q) => (q.backend ?? 'local-dev') === mem.kind);

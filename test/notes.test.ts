@@ -104,12 +104,26 @@ describe('NoteWriter durability', () => {
   it('reconciles specimen numbers and today\'s spend from the notes log after a restart', () => {
     const w = new NoteWriter(() => new LocalNoteMemory(), () => {}, { next_specimen: 3, day: '2026-11-07', written_today: 1 }, { now: () => t0 });
     w.reconcile([
-      { specimen_id: 'No.0007', created_at: '2026-11-07T10:00:00Z' },
-      { specimen_id: 'No.0008', created_at: '2026-11-07T11:00:00Z' },
-      { specimen_id: 'No.0002', created_at: '2026-11-06T23:00:00Z' },
+      { specimen_id: 'No.0007', created_at: '2026-11-07T10:00:00Z', backend: 'local-dev' },
+      { specimen_id: 'No.0008', created_at: '2026-11-07T11:00:00Z', backend: 'local-dev' },
+      { specimen_id: 'No.0009', created_at: '2026-11-07T11:30:00Z', backend: 'walrus' },
+      { specimen_id: 'No.0002', created_at: '2026-11-06T23:00:00Z', backend: 'local-dev' },
     ]);
-    expect(w.state.next_specimen).toBe(9);
-    expect(w.state.written_today).toBe(2);
+    expect(w.state.next_specimen).toBe(10);
+    expect(w.state.written_today).toBe(2); // only the backend whose spend is being measured
+  });
+
+  it('a switch to Walrus starts its own spend: the stand-in\'s day (and its 429 cuts) never block Walrus writes', async () => {
+    let mem: NoteMemory = new LocalNoteMemory([], () => t0);
+    const recs: NoteRecord[] = [];
+    const w = new NoteWriter(() => mem, (r) => recs.push(r), { day: '2026-11-07', written_today: 400, daily_budget: 100, next_write_at: t0 + 3600_000 }, { now: () => t0 });
+    w.reconcile([{ specimen_id: 'No.0001', created_at: '2026-11-07T01:00:00Z', backend: 'walrus' }]);
+    expect(w.allowance()).toBe(0);
+    mem = { kind: 'walrus', recall: async () => [], remember: async (t) => t.map((text) => ({ text, ok: true, created_at: new Date(t0).toISOString() })) };
+    w.enqueue((sp) => outcomeNote(sp, SP, 15, 1, '1'), SP, 'R', 'outcome', 1);
+    await w.flush();
+    expect(w.state).toMatchObject({ backend: 'walrus', daily_budget: 400, written_today: 2 });
+    expect(recs.map((r) => [r.backend, r.ok])).toEqual([['walrus', true]]);
   });
 
   it('clears the queue on a memory switch', () => {
