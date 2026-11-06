@@ -131,6 +131,8 @@ export interface NoteWriterOptions {
   queueCap?: number;
   burst?: number; // writes allowed ahead of the even daily pace
   now?: () => number;
+  /** Called right after a batch is accepted (job ids now in `awaiting`) so the owner can persist state at once. */
+  onAccepted?: () => void;
 }
 
 export const utcDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
@@ -157,7 +159,7 @@ export class NoteWriter {
     state: Partial<WriterState> = {},
     opts: NoteWriterOptions = {},
   ) {
-    this.opts = { dailyBudget: 400, minBudget: 100, batchSize: 20, queueCap: 400, burst: 20, now: Date.now, ...opts };
+    this.opts = { dailyBudget: 400, minBudget: 100, batchSize: 20, queueCap: 400, burst: 20, now: Date.now, onAccepted: () => {}, ...opts };
     const now = this.opts.now();
     this.state = {
       next_specimen: state.next_specimen ?? 1,
@@ -186,6 +188,10 @@ export class NoteWriter {
     }
     // spend is per backend: a day paced out on the local-dev stand-in must not block Walrus writes
     const today = this.todayByBackend.get(this.state.backend ?? 'local-dev') ?? 0;
+    // a note logged after the last state save but before a crash must not be submitted (or polled) again
+    const logged = new Set(log.map((n) => n.specimen_id));
+    this.queue = this.queue.filter((q) => !logged.has(specimenLabel(q.specimen)));
+    this.awaiting = this.awaiting.filter((q) => !logged.has(specimenLabel(q.specimen)));
     for (const q of [...this.queue, ...this.awaiting]) maxId = Math.max(maxId, q.specimen);
     this.state.next_specimen = Math.max(this.state.next_specimen, maxId + 1);
     this.state.written_today = Math.max(this.state.written_today, today);
@@ -247,8 +253,17 @@ export class NoteWriter {
 
   /** Flush one batch if budget and backoff allow. Returns the records written (ok or failed). */
   async flush(): Promise<NoteRecord[]> {
-    const now = this.opts.now();
     if (this.flushing) return [];
+    this.flushing = true;
+    try {
+      return await this.flushOnce();
+    } finally {
+      this.flushing = false;
+    }
+  }
+
+  private async flushOnce(): Promise<NoteRecord[]> {
+    const now = this.opts.now();
     const mem = this.memory();
     if ((this.state.backend ?? 'local-dev') !== mem.kind) {
       // new backend, fresh spend: its own writes today, the configured budget, no inherited backoff
@@ -266,13 +281,39 @@ export class NoteWriter {
     if (!this.queue.length || now < this.state.next_write_at) return confirmed;
     const n = Math.min(this.opts.batchSize, this.allowance(now), this.queue.length);
     if (n <= 0) return confirmed;
-    this.flushing = true;
     this.queue.sort((a, b) => b.priority - a.priority || a.queuedAt - b.queuedAt);
     const batch = this.queue.splice(0, n);
     const submittedAt = this.opts.now();
-    let stored: StoredNote[];
+    const texts = batch.map((b) => b.text);
     try {
-      stored = await mem.remember(batch.map((b) => b.text));
+      if (mem.submit && mem.confirm) {
+        // two-phase backend: the accepted job ids are in `awaiting` (and saved) BEFORE any polling starts,
+        // so a crash while the relayer works can always be confirmed later and never resubmits
+        const jobIds = await mem.submit(texts);
+        this.state.written_today += batch.length;
+        batch.forEach((b, i) => {
+          const id = jobIds[i];
+          if (id) this.awaiting.push({ ...b, backend: mem.kind, job_id: id, submittedAt });
+          else this.queue.push(b); // not accepted: stays queued
+        });
+        this.opts.onAccepted();
+        return [...confirmed, ...(await this.confirmAwaiting(mem))];
+      }
+      const stored = await mem.remember(texts);
+      this.state.written_today += batch.length;
+      // One record per submitted note, whatever the backend returned: a missing result is a failure;
+      // an accepted-but-unconfirmed job waits in `awaiting` and is recorded once it settles.
+      const out: NoteRecord[] = [];
+      batch.forEach((b, i) => {
+        const st = stored[i];
+        if (st?.pending && st.job_id) {
+          this.awaiting.push({ ...b, backend: mem.kind, job_id: st.job_id, submittedAt });
+          return;
+        }
+        out.push(this.record(b, mem.kind, submittedAt, st && st.text === b.text ? st : undefined, st ? undefined : 'no result returned for this item'));
+      });
+      this.emit(out);
+      return [...confirmed, ...out];
     } catch (e) {
       this.queue.unshift(...batch);
       if (e instanceof RateLimitedError) {
@@ -282,24 +323,8 @@ export class NoteWriter {
       } else {
         this.state.next_write_at = this.opts.now() + 60_000;
       }
-      this.flushing = false;
       throw e;
     }
-    this.flushing = false;
-    this.state.written_today += batch.length;
-    // One record per submitted note, whatever the backend returned: a missing result is a failure;
-    // an accepted-but-unconfirmed job waits in `awaiting` and is recorded once it settles.
-    const out: NoteRecord[] = [];
-    batch.forEach((b, i) => {
-      const s = stored[i];
-      if (s?.pending && s.job_id) {
-        this.awaiting.push({ ...b, backend: mem.kind, job_id: s.job_id, submittedAt });
-        return;
-      }
-      out.push(this.record(b, mem.kind, submittedAt, s && s.text === b.text ? s : undefined, s ? undefined : 'no result returned for this item'));
-    });
-    this.emit(out);
-    return [...confirmed, ...out];
   }
 
   private record(b: Pending, backend: NoteMemory['kind'], submittedAt: number, s: StoredNote | undefined, missing?: string): NoteRecord {
@@ -325,24 +350,21 @@ export class NoteWriter {
   private async confirmAwaiting(mem: NoteMemory): Promise<NoteRecord[]> {
     const mine = this.awaiting.filter((a) => (a.backend ?? 'local-dev') === mem.kind).slice(0, this.opts.batchSize);
     if (!mine.length || !mem.confirm) return [];
-    this.flushing = true;
     let res: StoredNote[];
     try {
       res = await mem.confirm(mine.map((a) => a.job_id));
     } catch {
       res = [];
-    } finally {
-      this.flushing = false;
     }
     const out: NoteRecord[] = [];
     const now = this.opts.now();
     mine.forEach((a, i) => {
-      const s = res[i];
-      const settled = s && !s.pending;
+      const st = res[i];
+      const settled = st && !st.pending;
       const expired = now - a.submittedAt > AWAIT_MAX_MS;
       if (!settled && !expired) return;
       this.awaiting.splice(this.awaiting.indexOf(a), 1);
-      out.push(this.record(a, mem.kind, a.submittedAt, settled ? { ...s, text: a.text } : { text: a.text, ok: false, job_id: a.job_id, created_at: new Date(now).toISOString(), error: `unconfirmed after ${AWAIT_MAX_MS / 60_000} min` }));
+      out.push(this.record(a, mem.kind, a.submittedAt, settled ? { ...st, text: a.text } : { text: a.text, ok: false, job_id: a.job_id, created_at: new Date(now).toISOString(), error: `unconfirmed after ${AWAIT_MAX_MS / 60_000} min` }));
     });
     this.emit(out);
     return out;

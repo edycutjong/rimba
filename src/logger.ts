@@ -68,7 +68,7 @@ const writer = new NoteWriter(() => walrus ?? local, (rec) => {
   notes.push(rec);
   loop.countNote(rec);
   log(rec.ok ? 'note stored' : 'note failed', { specimen: rec.specimen_id, backend: rec.backend, kind: rec.kind, blob_id: rec.blob_id, error: rec.error });
-}, prev?.writer ?? {}, { dailyBudget: cfg.notes?.daily_budget ?? 400 });
+}, prev?.writer ?? {}, { dailyBudget: cfg.notes?.daily_budget ?? 400, onAccepted: () => saveState() });
 writer.reconcile(notes);
 
 const loop = new CoreLoop({

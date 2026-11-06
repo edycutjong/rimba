@@ -45,6 +45,8 @@ export interface NoteMemory {
   recall(q: RecallQuery): Promise<RecalledNote[]>;
   /** Write up to 20 notes; resolves when every write is confirmed, failed, or still pending (job ids kept). */
   remember(texts: string[]): Promise<StoredNote[]>;
+  /** Two-phase write, phase 1: submit up to 20 notes and return their accepted job ids (positional). */
+  submit?(texts: string[]): Promise<string[]>;
   /** Re-poll accepted jobs by id (positional results; `text` is left empty — the caller holds it). */
   confirm?(jobIds: string[]): Promise<StoredNote[]>;
 }

@@ -202,6 +202,16 @@ export function replayWindow(cps: RawCheckpoint[], calls: CallRow[], resolutions
     }
   }
   const out: ReplayResult = { compared: 0, matched: 0, mismatches: [], sightings_found: sightingsFound, sightings_missing: missing, holes, oracle_disagreements: [] };
+  // a local resolution that claims a checkpoint inside the replayed range must have been re-derived by it
+  const lo = flat.length ? flat[0]!.seq : 0n, hi = flat.length ? flat[flat.length - 1]!.seq : -1n;
+  for (const c of calls) {
+    const local = resolutions.get(c.round_id);
+    if (!local || local.outcome === null || chain.has(c.round_id)) continue;
+    const at = BigInt(local.resolving_checkpoint_seq);
+    if (at < lo || at > hi || BigInt(c.checkpoint_seq) < lo) continue;
+    out.compared++;
+    out.mismatches.push({ round_id: c.round_id, local: local.outcome, chain: null, detail: `local resolves at ${local.resolving_checkpoint_seq}, inside the replay, but the replay did not resolve it` });
+  }
   const callById = new Map(calls.map((c) => [c.round_id, c]));
   for (const [id, ch] of chain) {
     const c = callById.get(id);

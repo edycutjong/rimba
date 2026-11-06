@@ -79,6 +79,10 @@ describe('online re-derivation (pure parts)', () => {
     const holed = replayWindow([cps[0]!, { ...cps[1]!, sequence_number: '13' }], [call(), call({ round_id: 'GHOST', tx_digest: 'GHOST' })], new Map([[D1, res()]]), { move_rule: 'any_transfer', horizon_min: 15 }, th);
     expect(holed.holes).toBe(2);
     expect(holed.sightings_missing).toEqual(['GHOST']);
+    // a local YES claimed at a checkpoint inside the replay that the replay never produced is a mismatch, not silence
+    const claimed = replayWindow([cps[0]!], [call()], new Map([[D1, res({ resolving_checkpoint_seq: '10' })]]), { move_rule: 'any_transfer', horizon_min: 15 }, th);
+    expect(claimed.compared).toBe(1);
+    expect(claimed.mismatches[0]!.detail).toMatch(/inside the replay/);
     const bad = replayWindow(cps, [call()], new Map([[D1, res({ outcome: 0, resolving_digest: 'CPX' })]]), { move_rule: 'any_transfer', horizon_min: 15 }, th);
     expect(bad.matched).toBe(0);
     expect(bad.mismatches).toHaveLength(1);

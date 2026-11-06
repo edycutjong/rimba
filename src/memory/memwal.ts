@@ -50,6 +50,12 @@ export class WalrusNoteMemory implements NoteMemory {
   }
 
   async remember(texts: string[]): Promise<StoredNote[]> {
+    const jobIds = await this.submit(texts);
+    return (await this.poll(jobIds, 120_000)).map((s, i) => ({ ...s, text: texts[i]! }));
+  }
+
+  /** rememberBulk only: returns the accepted job ids; the writer persists them before polling (confirm). */
+  async submit(texts: string[]): Promise<string[]> {
     if (texts.length > 20) throw new Error('rememberBulk takes at most 20 items');
     const items = texts.map((text) => ({ text, namespace: NAMESPACE }));
     const t = Date.now();
@@ -61,7 +67,7 @@ export class WalrusNoteMemory implements NoteMemory {
       this.rpc('memwal.rememberBulk', Date.now() - t, false);
       throw asRateLimit(e) ?? e;
     }
-    return (await this.poll(jobIds, 120_000)).map((s, i) => ({ ...s, text: texts[i]! }));
+    return jobIds;
   }
 
   /** Re-poll accepted jobs (a congested upload can run ~25 min); resubmitting would pay for a second blob. */

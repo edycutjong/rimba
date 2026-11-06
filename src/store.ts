@@ -1,7 +1,7 @@
 // Append-only local store under data/live/ (git-ignored while live; frozen copies are committed as
 // evidence). Calls and resolutions are separate files so a round's predictions are provably on disk
 // before its outcome exists (invariant I1); rounds.csv is materialised from the two by `score`.
-import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, truncateSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, truncateSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -23,7 +23,18 @@ export const files = {
 
 export function appendJsonl(path: string, row: unknown): void {
   mkdirSync(dirname(path), { recursive: true });
-  appendFileSync(path, JSON.stringify(row) + '\n');
+  const size = existsSync(path) ? statSync(path).size : 0;
+  try {
+    appendFileSync(path, JSON.stringify(row) + '\n');
+  } catch (e) {
+    // a partial append must not stay behind: a retry would fuse onto it into one unreadable line
+    try {
+      truncateSync(path, size);
+    } catch {
+      /* the original error is what matters */
+    }
+    throw e;
+  }
 }
 
 export function readJsonl<T>(path: string, onMalformed?: (lineNo: number) => void): T[] {

@@ -202,3 +202,29 @@ describe('NoteWriter — accepted jobs and backend switches', () => {
     expect(recs).toHaveLength(0);
   });
 });
+
+describe('NoteWriter — crash windows (a2a r02)', () => {
+  const T = Date.parse('2026-11-07T12:00:00Z');
+  it('a two-phase backend has the accepted job ids in saved state before any polling starts', async () => {
+    let seen: ReturnType<NoteWriter['snapshot']> | null = null;
+    const mem: NoteMemory = {
+      kind: 'walrus', recall: async () => [], remember: async () => { throw new Error('two-phase only'); },
+      submit: async (texts) => texts.map((_, i) => `J${i}`),
+      confirm: async (ids) => ids.map((id) => ({ text: '', ok: true, job_id: id, created_at: new Date(T).toISOString() })),
+    };
+    const recs: NoteRecord[] = [];
+    const w: NoteWriter = new NoteWriter(() => mem, (r) => recs.push(r), {}, { now: () => T, onAccepted: () => { seen = w.snapshot(); } });
+    w.enqueue((sp) => outcomeNote(sp, SP, 15, 1, '1'), SP, 'R0', 'outcome', 1);
+    await w.flush();
+    expect(seen!.queue).toEqual([]);
+    expect(seen!.awaiting!.map((a) => a.job_id)).toEqual(['J0']);
+    expect(recs.map((r) => [r.round_id, r.ok, r.job_id])).toEqual([['R0', true, 'J0']]);
+  });
+
+  it('a note logged after the last state save is not resubmitted after a crash', () => {
+    const w = new NoteWriter(() => new LocalNoteMemory(), () => {}, { day: '2026-11-07', queue: [{ specimen: 5, text: 'x', species: SP, roundId: 'R', kind: 'outcome', priority: 1, queuedAt: T }] }, { now: () => T });
+    w.reconcile([{ specimen_id: 'No.0005', created_at: '2026-11-07T11:59:00Z', backend: 'local-dev' }]);
+    expect(w.queued).toBe(0);
+    expect(w.state.next_specimen).toBe(6);
+  });
+});
