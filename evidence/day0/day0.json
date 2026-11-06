@@ -1,0 +1,147 @@
+{
+  "measured_at": "2026-11-06T21:51:15.227Z",
+  "network_source": "public-dev",
+  "host": "fullnode.mainnet.sui.io:443",
+  "window": {
+    "checkpoints": 14707,
+    "first_seq": "342400542",
+    "last_seq": "342416271",
+    "minutes": 62,
+    "stream_errors": 116,
+    "checkpoints_missing": 1023,
+    "coverage": 0.935
+  },
+  "transfers": 1226,
+  "transfers_per_min": 19.8,
+  "coins_top": [
+    {
+      "coin": "0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI",
+      "transfers": 1017
+    },
+    {
+      "coin": "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC",
+      "transfers": 91
+    },
+    {
+      "coin": "0xefb1d695f458aff3f583a4b2d1808b69ddd22579fe0dd459da28ae07dc1052fe::veto::VETO",
+      "transfers": 38
+    },
+    {
+      "coin": "0x4c981f3ff786cdb9e514da897ab8a953647dae2ace9679e8358eec1e3e8871ac::dmc::DMC",
+      "transfers": 17
+    },
+    {
+      "coin": "0xcd7f0daab049f35f17b8faab740ff0c5d7882c839188b4dc1b4a59d7cd9b78d1::ast::AST",
+      "transfers": 9
+    },
+    {
+      "coin": "0x14b834dcf40918a02b18e6b5cbbd469fecabe745a8687a752a43bcfda2ae1b2e::pst::PST",
+      "transfers": 7
+    },
+    {
+      "coin": "0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL",
+      "transfers": 6
+    },
+    {
+      "coin": "0x5145494a5f5100e645e4b0aa950fa6b68f614e8c59e17bc5ded3495123a79178::ns::NS",
+      "transfers": 5
+    }
+  ],
+  "thresholds_raw": {
+    "0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI": "282910000000",
+    "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC": "70000000"
+  },
+  "sightings": 125,
+  "sightings_per_min": 2.02,
+  "sightings_first_30min": 59,
+  "unique_senders_in_sightings": 80,
+  "base_rate": {
+    "any_signed_tx": {
+      "2": {
+        "n": 121,
+        "yes": 20,
+        "rate": 0.1652892561983471
+      },
+      "5": {
+        "n": 116,
+        "yes": 38,
+        "rate": 0.3275862068965517
+      },
+      "10": {
+        "n": 105,
+        "yes": 43,
+        "rate": 0.4095238095238095
+      },
+      "15": {
+        "n": 89,
+        "yes": 41,
+        "rate": 0.4606741573033708
+      },
+      "30": {
+        "n": 62,
+        "yes": 32,
+        "rate": 0.5161290322580645
+      }
+    },
+    "any_transfer": {
+      "2": {
+        "n": 121,
+        "yes": 15,
+        "rate": 0.12396694214876033
+      },
+      "5": {
+        "n": 116,
+        "yes": 38,
+        "rate": 0.3275862068965517
+      },
+      "10": {
+        "n": 105,
+        "yes": 43,
+        "rate": 0.4095238095238095
+      },
+      "15": {
+        "n": 89,
+        "yes": 41,
+        "rate": 0.4606741573033708
+      },
+      "30": {
+        "n": 62,
+        "yes": 32,
+        "rate": 0.5161290322580645
+      }
+    },
+    "above_threshold_transfer": {
+      "2": {
+        "n": 121,
+        "yes": 5,
+        "rate": 0.04132231404958678
+      },
+      "5": {
+        "n": 116,
+        "yes": 18,
+        "rate": 0.15517241379310345
+      },
+      "10": {
+        "n": 105,
+        "yes": 32,
+        "rate": 0.3047619047619048
+      },
+      "15": {
+        "n": 89,
+        "yes": 29,
+        "rate": 0.3258426966292135
+      },
+      "30": {
+        "n": 62,
+        "yes": 25,
+        "rate": 0.4032258064516129
+      }
+    }
+  },
+  "pick": {
+    "def": "any_transfer",
+    "H": 30,
+    "rate": 0.5161290322580645,
+    "n": 62
+  }
+}
