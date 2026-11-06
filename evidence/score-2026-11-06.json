@@ -1,0 +1,233 @@
+{
+  "generated_at": "2026-11-06T22:36:04.203Z",
+  "headline": {
+    "question": {
+      "horizon_min": 15,
+      "move_rule": "any_transfer"
+    },
+    "filter": {
+      "network_source": "tatum",
+      "memory_source": "walrus"
+    },
+    "all": {
+      "n": 0,
+      "brier_memory": null,
+      "brier_base": null,
+      "brier_freq": null,
+      "skill_vs_base": null,
+      "yes_rate": null,
+      "n_called": 0,
+      "brier_memory_called": null,
+      "brier_base_called": null
+    },
+    "never_seen": {
+      "n": 0,
+      "brier_memory": null,
+      "brier_base": null,
+      "brier_freq": null,
+      "skill_vs_base": null,
+      "yes_rate": null,
+      "n_called": 0,
+      "brier_memory_called": null,
+      "brier_base_called": null
+    },
+    "seen": {
+      "n": 0,
+      "brier_memory": null,
+      "brier_base": null,
+      "brier_freq": null,
+      "skill_vs_base": null,
+      "yes_rate": null,
+      "n_called": 0,
+      "brier_memory_called": null,
+      "brier_base_called": null
+    },
+    "by_day": [],
+    "counts": {
+      "calls": 0,
+      "resolved": 0,
+      "void": 0,
+      "pending": 0,
+      "excluded_other_question": 164
+    }
+  },
+  "tatum_any_memory": {
+    "question": {
+      "horizon_min": 15,
+      "move_rule": "any_transfer"
+    },
+    "filter": {
+      "network_source": "tatum",
+      "memory_source": "any"
+    },
+    "all": {
+      "n": 0,
+      "brier_memory": null,
+      "brier_base": null,
+      "brier_freq": null,
+      "skill_vs_base": null,
+      "yes_rate": null,
+      "n_called": 0,
+      "brier_memory_called": null,
+      "brier_base_called": null
+    },
+    "never_seen": {
+      "n": 0,
+      "brier_memory": null,
+      "brier_base": null,
+      "brier_freq": null,
+      "skill_vs_base": null,
+      "yes_rate": null,
+      "n_called": 0,
+      "brier_memory_called": null,
+      "brier_base_called": null
+    },
+    "seen": {
+      "n": 0,
+      "brier_memory": null,
+      "brier_base": null,
+      "brier_freq": null,
+      "skill_vs_base": null,
+      "yes_rate": null,
+      "n_called": 0,
+      "brier_memory_called": null,
+      "brier_base_called": null
+    },
+    "by_day": [],
+    "counts": {
+      "calls": 0,
+      "resolved": 0,
+      "void": 0,
+      "pending": 0,
+      "excluded_other_question": 164
+    }
+  },
+  "dev_public_local": {
+    "question": {
+      "horizon_min": 15,
+      "move_rule": "any_transfer"
+    },
+    "filter": {
+      "network_source": "public-dev",
+      "memory_source": "local-dev"
+    },
+    "all": {
+      "n": 51,
+      "brier_memory": 0.3072,
+      "brier_base": 0.2533,
+      "brier_freq": 0.2135,
+      "skill_vs_base": -0.2129,
+      "yes_rate": 0.5294,
+      "n_called": 36,
+      "brier_memory_called": 0.3359,
+      "brier_base_called": 0.2595
+    },
+    "never_seen": {
+      "n": 29,
+      "brier_memory": 0.3937,
+      "brier_base": 0.281,
+      "brier_freq": 0.281,
+      "skill_vs_base": -0.4011,
+      "yes_rate": 0.3103,
+      "n_called": 22,
+      "brier_memory_called": 0.4294,
+      "brier_base_called": 0.2809
+    },
+    "seen": {
+      "n": 22,
+      "brier_memory": 0.1932,
+      "brier_base": 0.2167,
+      "brier_freq": 0.1244,
+      "skill_vs_base": 0.1087,
+      "yes_rate": 0.8182,
+      "n_called": 14,
+      "brier_memory_called": 0.1888,
+      "brier_base_called": 0.2259
+    },
+    "by_day": [
+      {
+        "day": "2026-11-06",
+        "n": 51,
+        "brier_memory": 0.3072,
+        "brier_base": 0.2533,
+        "brier_freq": 0.2135,
+        "skill_vs_base": -0.2129,
+        "yes_rate": 0.5294,
+        "n_called": 36,
+        "brier_memory_called": 0.3359,
+        "brier_base_called": 0.2595
+      }
+    ],
+    "counts": {
+      "calls": 76,
+      "resolved": 51,
+      "void": 0,
+      "pending": 25,
+      "excluded_other_question": 164
+    }
+  },
+  "all_rows": {
+    "question": {
+      "horizon_min": 15,
+      "move_rule": "any_transfer"
+    },
+    "filter": {
+      "network_source": "any",
+      "memory_source": "any"
+    },
+    "all": {
+      "n": 66,
+      "brier_memory": 0.2924,
+      "brier_base": 0.2507,
+      "brier_freq": 0.2067,
+      "skill_vs_base": -0.1662,
+      "yes_rate": 0.5,
+      "n_called": 36,
+      "brier_memory_called": 0.3359,
+      "brier_base_called": 0.2595
+    },
+    "never_seen": {
+      "n": 37,
+      "brier_memory": 0.3509,
+      "brier_base": 0.2626,
+      "brier_freq": 0.2626,
+      "skill_vs_base": -0.3365,
+      "yes_rate": 0.2973,
+      "n_called": 22,
+      "brier_memory_called": 0.4294,
+      "brier_base_called": 0.2809
+    },
+    "seen": {
+      "n": 29,
+      "brier_memory": 0.2177,
+      "brier_base": 0.2356,
+      "brier_freq": 0.1355,
+      "skill_vs_base": 0.0759,
+      "yes_rate": 0.7586,
+      "n_called": 14,
+      "brier_memory_called": 0.1888,
+      "brier_base_called": 0.2259
+    },
+    "by_day": [
+      {
+        "day": "2026-11-06",
+        "n": 66,
+        "brier_memory": 0.2924,
+        "brier_base": 0.2507,
+        "brier_freq": 0.2067,
+        "skill_vs_base": -0.1662,
+        "yes_rate": 0.5,
+        "n_called": 36,
+        "brier_memory_called": 0.3359,
+        "brier_base_called": 0.2595
+      }
+    ],
+    "counts": {
+      "calls": 91,
+      "resolved": 66,
+      "void": 0,
+      "pending": 25,
+      "excluded_other_question": 164
+    }
+  }
+}

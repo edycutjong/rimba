@@ -1,0 +1,81 @@
+{
+  "generated_at": "2026-11-06T22:36:04.644Z",
+  "offline": {
+    "rounds": 255,
+    "resolutions": 230,
+    "checks": {
+      "unique round_id": {
+        "checked": 255,
+        "failed": 0
+      },
+      "digest format": {
+        "checked": 255,
+        "failed": 0
+      },
+      "predictions in [0,1]": {
+        "checked": 255,
+        "failed": 0
+      },
+      "abstain = base rate": {
+        "checked": 196,
+        "failed": 0
+      },
+      "memory call clamped [0.05,0.95] and consistent": {
+        "checked": 59,
+        "failed": 0
+      },
+      "I1 resolution has a call": {
+        "checked": 230,
+        "failed": 0
+      },
+      "I1 one resolution per round": {
+        "checked": 230,
+        "failed": 0
+      },
+      "I1 resolved after called": {
+        "checked": 230,
+        "failed": 0
+      },
+      "I2 YES inside window": {
+        "checked": 85,
+        "failed": 0
+      },
+      "I2 NO past deadline": {
+        "checked": 145,
+        "failed": 0
+      },
+      "I3 cited note written before call (row)": {
+        "checked": 423,
+        "failed": 0
+      },
+      "I3 cited note exists in notes log, written before call": {
+        "checked": 423,
+        "failed": 0
+      }
+    },
+    "findings": []
+  },
+  "endpoint": {
+    "source": "public-dev",
+    "host": "fullnode.mainnet.sui.io:443"
+  },
+  "sample": {
+    "n": 50,
+    "pool": 66,
+    "pool_source": "public-dev",
+    "sightings_matched": 50,
+    "outcomes_matched": 50,
+    "failures": []
+  },
+  "replay": {
+    "first_seq": "342421522",
+    "last_seq": "342428045",
+    "checkpoints": 6524,
+    "ms": 65893,
+    "rounds_in_window": 60,
+    "compared": 35,
+    "matched": 35,
+    "mismatches": [],
+    "sightings_found": 60
+  }
+}

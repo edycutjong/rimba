@@ -1,0 +1,48 @@
+{
+  "generated_at": "2026-11-06T22:37:14.086Z",
+  "node": "v22.22.0",
+  "platform": "darwin-arm64",
+  "decode_ms": {
+    "n": 1000,
+    "p50": 0.012,
+    "p95": 0.025,
+    "checkpoints": 5,
+    "txs_per_checkpoint_mean": 28.6
+  },
+  "species_recall_vote_local_ms": {
+    "n": 1000,
+    "p50": 0.238,
+    "p95": 0.299,
+    "notes": 400
+  },
+  "chain_to_call_ms": {
+    "public-dev": {
+      "n": 259,
+      "p50": 887,
+      "p95": 1709
+    }
+  },
+  "recall_ms": {
+    "local-dev": {
+      "n": 80,
+      "p50": 0,
+      "p95": 1
+    }
+  },
+  "rpc_ms": {
+    "SubscribeCheckpoints · public-dev": {
+      "n": 0,
+      "p50": null,
+      "p95": null,
+      "calls": 194,
+      "ok_rate": 0
+    },
+    "GetCheckpoint · public-dev": {
+      "n": 967,
+      "p50": 31,
+      "p95": 44,
+      "calls": 968,
+      "ok_rate": 0.999
+    }
+  }
+}
