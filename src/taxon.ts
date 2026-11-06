@@ -1,4 +1,4 @@
-// Species: deterministic trait buckets → one sentence. Embedding models are poor at numeric distance,
+// Taxon: deterministic trait buckets → one species sentence. Embedding models are poor at numeric distance,
 // so numbers are bucketed into words BEFORE anything is embedded: two "huge round SUI" sightings land
 // next to each other whatever the exact amounts were. No LLM, no randomness — same input, same words.
 //

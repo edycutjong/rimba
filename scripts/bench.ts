@@ -11,7 +11,7 @@ import { performance } from 'node:perf_hooks';
 import { LocalNoteMemory } from '../src/memory/backend.js';
 import { vote } from '../src/naturalist.js';
 import { outcomeNote } from '../src/notes.js';
-import { sentence, SLOTS, speciesSentence } from '../src/species.js';
+import { sentence, SLOTS, speciesSentence } from '../src/taxon.js';
 import type { RawCheckpoint } from '../src/stream/client.js';
 import { decodeCheckpoint } from '../src/stream/decode.js';
 import { files, readJsonl, ROOT, type CallRow } from '../src/store.js';

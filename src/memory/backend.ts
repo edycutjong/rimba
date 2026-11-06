@@ -3,7 +3,7 @@
 //   local-dev  — a stand-in used ONLY while no Walrus Memory credentials exist, so the loop can run
 //                end-to-end. Every round records which one answered (`memory_source`) and local-dev
 //                rounds never feed a headline number — the same rule as `public-dev` stream rows.
-import { parseSpecies, speciesDistance } from '../species.js';
+import { parseSpecies, speciesDistance } from '../taxon.js';
 import { parseNote } from '../notes.js';
 
 export type MemorySource = 'walrus' | 'local-dev';

@@ -4,7 +4,7 @@
 // superseding note carries the fresh tally (memories are immutable — supersede, never delete):
 //   "Specimen No.0450 · <species> · last 5 sightings moved again within 15 min: 4 of 5 YES [supersedes No.0398, No.0401] (checkpoint 342419000)"
 // Notes hold public chain facts only (bucketed traits, an outcome, a checkpoint number) — no addresses.
-import { parseSpecies, type Species } from './species.js';
+import { parseSpecies, type Species } from './taxon.js';
 import { RateLimitedError, type NoteMemory, type StoredNote } from './memory/backend.js';
 
 export interface ParsedNote {

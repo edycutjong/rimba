@@ -4,7 +4,7 @@ import { BaseRate, FrequencyTable } from './baselines.js';
 import { naturalistCall } from './naturalist.js';
 import { drifted, outcomeNote, parseNote, supersedeNote, type NoteRecord, type NoteWriter } from './notes.js';
 import { Resolver, type Activity, type Resolution } from './resolver.js';
-import { speciesSentence } from './species.js';
+import { speciesSentence } from './taxon.js';
 import { normAddr, normCoin, tsToMs, decodeCheckpoint, type Transfer } from './stream/decode.js';
 import type { NetworkSource, RawCheckpoint } from './stream/client.js';
 import type { NoteMemory } from './memory/backend.js';
