@@ -36,10 +36,24 @@ export interface Scorecard {
   never_seen: Cell;
   seen: Cell;
   by_day: ({ day: string } & Cell)[];
-  counts: { calls: number; resolved: number; void: number; pending: number; excluded_other_question: number };
+  counts: {
+    calls: number; resolved: number; void: number; pending: number; excluded_other_question: number;
+    /** Call matched the filter but its resolution came through another stream (in flight at an endpoint switch). */
+    excluded_mixed_source: number;
+    /** Call written more than LIVE_CALL_MAX_LAG_MS after its sighting's checkpoint (backlog / restart replay). */
+    excluded_late_call: number;
+  };
 }
 
 const r4 = (x: number | null) => (x === null ? null : Number(x.toFixed(4)));
+
+/**
+ * Live-call rule, fixed before any headline row existed and independent of every outcome: a labelled
+ * scorecard counts a round only if its call was written within 60 s of the sighting's checkpoint time.
+ * Calls made while catching up (restart replay, deep backfill) stay in the logs, flagged, but out of it.
+ */
+export const LIVE_CALL_MAX_LAG_MS = 60_000;
+export const callLagMs = (c: Pick<CallRow, 'created_at' | 'checkpoint_ts'>) => Date.parse(c.created_at) - c.checkpoint_ts;
 
 export function joinRounds(calls: CallRow[], resolutions: ResolutionRow[]): { rounds: Round[]; void: number; pending: number } {
   const res = new Map(resolutions.map((r) => [r.round_id, r]));
@@ -79,15 +93,22 @@ export function cell(rs: Round[]): Cell {
 export interface ScoreFilter {
   network_source?: 'tatum' | 'public-dev' | 'any';
   memory_source?: 'walrus' | 'local-dev' | 'none' | 'any';
+  /** Apply the live-call rule. Default: on for every labelled card (a stream filter is set), off for 'any'. */
+  live_only?: boolean;
 }
 
 export function scorecard(calls: CallRow[], resolutions: ResolutionRow[], cfg: Pick<RimbaConfig, 'horizon_min' | 'move_rule'>, f: ScoreFilter = {}): Scorecard {
   const ns = f.network_source ?? 'any', ms = f.memory_source ?? 'any';
   const sameQ = calls.filter((c) => c.horizon_min === cfg.horizon_min && c.move_rule === cfg.move_rule);
-  const picked = sameQ.filter((c) => (ns === 'any' || c.network_source === ns) && (ms === 'any' || (c.memory_source ?? 'none') === ms));
-  // a round counts under a stream filter only if its resolution came through the same stream too
-  const res = ns === 'any' ? resolutions : resolutions.filter((r) => r.network_source === ns);
-  const { rounds, void: voided, pending } = joinRounds(picked, res);
+  const live = f.live_only ?? ns !== 'any';
+  const matched = sameQ.filter((c) => (ns === 'any' || c.network_source === ns) && (ms === 'any' || (c.memory_source ?? 'none') === ms));
+  const picked = live ? matched.filter((c) => callLagMs(c) <= LIVE_CALL_MAX_LAG_MS) : matched;
+  // a round counts under a stream filter only if its resolution came through the same stream too;
+  // one resolved through the other stream is counted as excluded, never as pending
+  const resById = new Map(resolutions.map((r) => [r.round_id, r]));
+  const mixed = ns === 'any' ? [] : picked.filter((c) => { const r = resById.get(c.round_id); return !!r && r.network_source !== ns; });
+  const mixedIds = new Set(mixed.map((c) => c.round_id));
+  const { rounds, void: voided, pending } = joinRounds(picked.filter((c) => !mixedIds.has(c.round_id)), resolutions);
   const days = new Map<string, Round[]>();
   for (const r of rounds) {
     const d = r.created_at.slice(0, 10);
@@ -102,7 +123,10 @@ export function scorecard(calls: CallRow[], resolutions: ResolutionRow[], cfg: P
     never_seen: cell(rounds.filter((r) => !r.sender_seen_before)),
     seen: cell(rounds.filter((r) => r.sender_seen_before)),
     by_day: [...days.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([day, rs]) => ({ day, ...cell(rs) })),
-    counts: { calls: picked.length, resolved: rounds.length, void: voided, pending, excluded_other_question: calls.length - sameQ.length },
+    counts: {
+      calls: picked.length, resolved: rounds.length, void: voided, pending, excluded_other_question: calls.length - sameQ.length,
+      excluded_mixed_source: mixed.length, excluded_late_call: matched.length - picked.length,
+    },
   };
 }
 
@@ -145,7 +169,7 @@ export function renderScorecard(s: Scorecard, title: string): string {
   const lines = [
     `### ${title}`,
     `Question: does the sender move again within ${s.question.horizon_min} min (rule \`${s.question.move_rule}\`)? Filter: stream \`${s.filter.network_source}\`, memory \`${s.filter.memory_source}\`.`,
-    `Rounds: ${s.counts.calls} calls · ${s.counts.resolved} resolved · ${s.counts.void} void (checkpoint gap) · ${s.counts.pending} pending.`,
+    `Rounds: ${s.counts.calls} calls · ${s.counts.resolved} resolved · ${s.counts.void} void (checkpoint gap) · ${s.counts.pending} pending · ${s.counts.excluded_mixed_source} excluded (resolved via the other stream) · ${s.counts.excluded_late_call} excluded (call written > ${LIVE_CALL_MAX_LAG_MS / 1000} s after its checkpoint).`,
     '',
     head,
     cellRow('never-seen addresses', s.never_seen),

@@ -3,7 +3,7 @@ import { cell, joinRounds, roundsCsv, scorecard, CSV_COLUMNS } from '../src/scor
 import type { CallRow, ResolutionRow } from '../src/store.js';
 
 const call = (id: string, p: Partial<CallRow> = {}): CallRow => ({
-  round_id: id, created_at: '2026-11-07T00:00:00Z', network_source: 'tatum', checkpoint_seq: '1', checkpoint_ts: 0, tx_digest: id, sender: 'S' + id,
+  round_id: id, created_at: '2026-11-07T00:00:00Z', network_source: 'tatum', checkpoint_seq: '1', checkpoint_ts: Date.parse('2026-11-07T00:00:00Z') - 900, tx_digest: id, sender: 'S' + id,
   recipient: 'R', coin_type: 'SUI', amount_raw: '1', horizon_min: 15, move_rule: 'any_transfer', sender_seen_before: false, p_memory: 0.8,
   call: 'yes', p_base: 0.5, p_freq: 0.5, cited_note_ids: ['No.0001'], cited_distances: [0.1], memory_source: 'walrus', species: 'a, b', ...p,
 });
@@ -58,5 +58,14 @@ describe('score', () => {
   it('a Tatum round resolved through another stream does not count under the Tatum filter', () => {
     const s = scorecard([call('A'), call('B')], [res('A', 1), { ...res('B', 1), network_source: 'public-dev' }], cfg, { network_source: 'tatum', memory_source: 'walrus' });
     expect(s.all.n).toBe(1);
+    expect(s.counts).toMatchObject({ excluded_mixed_source: 1, pending: 0 });
+  });
+
+  it('live-call rule: a call written more than 60 s after its checkpoint is flagged out of labelled cards, not out of all_rows', () => {
+    const late = call('L', { checkpoint_ts: Date.parse('2026-11-07T00:00:00Z') - 61_000 });
+    const s = scorecard([call('A'), late], [res('A', 1), res('L', 1)], cfg, { network_source: 'tatum', memory_source: 'walrus' });
+    expect(s.all.n).toBe(1);
+    expect(s.counts.excluded_late_call).toBe(1);
+    expect(scorecard([call('A'), late], [res('A', 1), res('L', 1)], cfg).all.n).toBe(2);
   });
 });

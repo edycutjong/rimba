@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const dir = mkdtempSync(join(tmpdir(), 'rimba-srv-'));
 process.env.RIMBA_DATA_DIR = dir;
-const row = { round_id: 'R1', created_at: '2026-11-07T00:00:00Z', network_source: 'tatum', checkpoint_seq: '1', checkpoint_ts: 0, tx_digest: 'R1', sender: 'S', recipient: 'R', coin_type: 'SUI', amount_raw: '1', horizon_min: 15, move_rule: 'any_transfer', sender_seen_before: false, p_memory: 0.5, call: 'abstain', p_base: 0.5, p_freq: 0.5, cited_note_ids: [], cited_distances: [], memory_source: 'walrus' };
+const row = { round_id: 'R1', created_at: '2026-11-07T00:00:00Z', network_source: 'tatum', checkpoint_seq: '1', checkpoint_ts: Date.parse('2026-11-07T00:00:00Z') - 900, tx_digest: 'R1', sender: 'S', recipient: 'R', coin_type: 'SUI', amount_raw: '1', horizon_min: 15, move_rule: 'any_transfer', sender_seen_before: false, p_memory: 0.5, call: 'abstain', p_base: 0.5, p_freq: 0.5, cited_note_ids: [], cited_distances: [], memory_source: 'walrus' };
 writeFileSync(join(dir, 'calls.jsonl'), JSON.stringify(row) + '\n');
 writeFileSync(join(dir, 'rpc.jsonl'), JSON.stringify({ at: 1, method: 'GetCheckpoint', ms: 30, ok: true, source: 'tatum' }) + '\n');
 writeFileSync(join(dir, 'health.json'), JSON.stringify({ pid: 1, lag_s: 1 }));
