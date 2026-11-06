@@ -1,11 +1,11 @@
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { CoreLoop } from '../src/loop.js';
 import { LocalNoteMemory } from '../src/memory/backend.js';
 import { NoteWriter, type NoteRecord } from '../src/notes.js';
-import { checkI3, InvariantError, RoundStore, type CallRow, type RimbaConfig } from '../src/store.js';
+import { checkI3, InvariantError, malformedLines, repairTornTail, RoundStore, type CallRow, type RimbaConfig } from '../src/store.js';
 import type { RawCheckpoint } from '../src/stream/client.js';
 
 const SUI = '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI';
@@ -168,6 +168,24 @@ describe('CoreLoop resilience', () => {
     expect(s.store.resolution('T9')!.outcome).toBe(0);
     expect(s.store.resolution('T1')).toBeUndefined();
     expect(errors[0]).toMatch(/T1/);
+    // the computed outcome is kept, the resume cursor is held before its resolving checkpoint, and the write is retried
+    expect(s.loop.holdCursorAt()).toBe(1n);
+    s.store.resolveRound = orig;
+    await s.loop.onCheckpoint(cp(3, T0 + 17 * 60_000, []), 'public-dev');
+    expect(s.store.resolution('T1')).toMatchObject({ outcome: 0, resolving_checkpoint_seq: '2' });
+    expect(s.loop.holdCursorAt()).toBeNull();
+  });
+
+  it('cuts a torn final record off a ledger so the next append starts on a record boundary', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'rimba-torn-'));
+    const path = join(dir, 'calls.jsonl');
+    writeFileSync(path, '{"a":1}\n{"b":');
+    expect(repairTornTail(path, 42)).toBe(5);
+    expect(readFileSync(path, 'utf8')).toBe('{"a":1}\n');
+    expect(readFileSync(`${path}.torn-42`, 'utf8')).toBe('{"b":');
+    expect(repairTornTail(path)).toBe(0);
+    writeFileSync(path, '{"a":1}\nnot json\n{"c":3}\n');
+    expect(malformedLines(path)).toBe(1);
   });
 
   it('a throwing observer never strands a round: it is pending in the resolver and still resolves', async () => {

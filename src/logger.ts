@@ -103,7 +103,10 @@ const state: State = {
 };
 const saveState = () => {
   try {
-    writeJsonAtomic(files.state(), { ...state, writer: writer.snapshot() });
+    // never save a resume cursor past a checkpoint whose resolution is not yet on disk
+    const hold = loop.holdCursorAt();
+    const cursor = hold !== null && state.last_checkpoint_seq !== null && BigInt(state.last_checkpoint_seq) > hold ? hold.toString() : state.last_checkpoint_seq;
+    writeJsonAtomic(files.state(), { ...state, last_checkpoint_seq: cursor, writer: writer.snapshot() });
   } catch (e) {
     console.error(`state save failed: ${String(e)}`);
   }
@@ -117,6 +120,7 @@ const ep = chooseEndpoint();
 log('logger start', {
   source: ep.source, host: ep.host, resume_from: state.last_checkpoint_seq, horizon_min: cfg.horizon_min, move_rule: cfg.move_rule,
   pending: loop.resolver.pendingCount, calls: store.size, memory: walrus ? 'walrus' : 'local-dev', notes: notes.length,
+  ...(store.tornBytes.calls || store.tornBytes.resolutions ? { torn_tail_repaired_bytes: store.tornBytes } : {}),
 });
 
 const src = new CheckpointSource(ep, {
@@ -184,7 +188,7 @@ function heartbeat() {
   writeJsonAtomic(files.health(), {
     at: new Date().toISOString(), pid: process.pid, source: src.endpoint.source, last_seq: state.last_checkpoint_seq, lag_s: lagS,
     rounds_opened_this_run: loop.roundsOpened, rounds_resolved_this_run: loop.roundsResolved, pending: loop.resolver.pendingCount,
-    base_rate_p: Number(loop.base.p().toFixed(4)), base_rate_n: loop.base.count, gaps: state.gaps,
+    base_rate_p: Number(loop.base.p().toFixed(4)), base_rate_n: loop.base.count, gaps: state.gaps, resolutions_unpersisted: loop.unpersistedCount,
     memory: walrus ? 'walrus' : 'local-dev', notes_total: notes.length, notes_queued: writer.queued,
     notes_written_today: writer.state.written_today, notes_budget_today: writer.state.daily_budget, rate_limited_today: writer.state.rate_limited_today,
   });

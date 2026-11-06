@@ -1,7 +1,7 @@
 // Append-only local store under data/live/ (git-ignored while live; frozen copies are committed as
 // evidence). Calls and resolutions are separate files so a round's predictions are provably on disk
 // before its outcome exists (invariant I1); rounds.csv is materialised from the two by `score`.
-import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, truncateSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -24,18 +24,41 @@ export function appendJsonl(path: string, row: unknown): void {
   appendFileSync(path, JSON.stringify(row) + '\n');
 }
 
-export function readJsonl<T>(path: string): T[] {
+export function readJsonl<T>(path: string, onMalformed?: (lineNo: number) => void): T[] {
   if (!existsSync(path)) return [];
   const out: T[] = [];
-  for (const line of readFileSync(path, 'utf8').split('\n')) {
-    if (!line.trim()) continue;
+  readFileSync(path, 'utf8').split('\n').forEach((line, i) => {
+    if (!line.trim()) return;
     try {
       out.push(JSON.parse(line) as T);
     } catch {
-      // a torn final line after a crash is skipped, never fatal
+      // never fatal for readers; ledgers are repaired at open (repairTornTail) and counted (malformedLines)
+      onMalformed?.(i + 1);
     }
-  }
+  });
   return out;
+}
+
+/** Lines that are not valid JSON — after repairTornTail, any count above zero is real ledger corruption. */
+export function malformedLines(path: string): number {
+  let bad = 0;
+  readJsonl(path, () => bad++);
+  return bad;
+}
+
+/**
+ * A crash mid-append can leave a final record without its newline; the next append would then fuse a
+ * valid row onto the fragment and lose both. Cut the fragment off (kept beside the ledger as
+ * `<file>.torn-<ms>`) so the ledger ends on a record boundary. Returns the fragment's byte length.
+ */
+export function repairTornTail(path: string, now = Date.now()): number {
+  if (!existsSync(path)) return 0;
+  const buf = readFileSync(path);
+  if (!buf.length || buf[buf.length - 1] === 0x0a) return 0;
+  const keep = buf.lastIndexOf(0x0a) + 1;
+  writeFileSync(`${path}.torn-${now}`, buf.subarray(keep));
+  truncateSync(path, keep);
+  return buf.length - keep;
 }
 
 export function writeJsonAtomic(path: string, v: unknown): void {
@@ -138,7 +161,10 @@ export function checkI3(call: Pick<CallRow, 'round_id' | 'created_at' | 'cited_n
 export class RoundStore {
   private calls = new Map<string, CallRow>();
   private resolved = new Map<string, ResolutionRow>();
+  /** Bytes cut from a torn final record at open, per ledger (0 = clean). */
+  readonly tornBytes: { calls: number; resolutions: number };
   constructor(private callsPath = files.calls(), private resPath = files.resolutions()) {
+    this.tornBytes = { calls: repairTornTail(callsPath), resolutions: repairTornTail(resPath) };
     for (const c of readJsonl<CallRow>(callsPath)) this.calls.set(c.round_id, c);
     for (const r of readJsonl<ResolutionRow>(resPath)) this.resolved.set(r.round_id, r);
   }

@@ -68,6 +68,8 @@ export class CoreLoop {
   private now: () => number;
   roundsOpened = 0;
   roundsResolved = 0;
+  /** Resolutions computed but not yet on disk (write failed): retried on every checkpoint, never recomputed. */
+  private unpersisted = new Map<string, { r: Resolution; source: NetworkSource }>();
 
   constructor(private d: LoopDeps) {
     const cfg = d.cfg;
@@ -141,6 +143,23 @@ export class CoreLoop {
     return sightingsOf(transfers, this.thresholds);
   }
 
+  /**
+   * While a computed resolution is not on disk, a saved resume cursor must not pass the checkpoint
+   * that resolved it: after a crash the round is pending again and that checkpoint must be replayed.
+   */
+  holdCursorAt(): bigint | null {
+    let min: bigint | null = null;
+    for (const { r } of this.unpersisted.values()) {
+      const s = BigInt(r.resolvingCheckpointSeq) - 1n;
+      if (min === null || s < min) min = s;
+    }
+    return min;
+  }
+
+  get unpersistedCount(): number {
+    return this.unpersisted.size;
+  }
+
   applyResolutions(rs: Resolution[], source: NetworkSource): void {
     for (const r of rs) {
       const call = this.d.store.call(r.roundId);
@@ -158,10 +177,12 @@ export class CoreLoop {
       try {
         this.d.store.resolveRound(row);
       } catch (e) {
-        // never abort the batch: the other rounds in it were already removed from the resolver
-        this.d.onError?.(`resolution write failed for ${r.roundId}: ${String(e)}`);
+        // never abort the batch, never lose the outcome: keep it and retry the same row on the next checkpoint
+        if (!this.unpersisted.has(r.roundId)) this.d.onError?.(`resolution write failed for ${r.roundId} (will retry): ${String(e)}`);
+        this.unpersisted.set(r.roundId, { r, source });
         continue;
       }
+      this.unpersisted.delete(r.roundId);
       this.roundsResolved++;
       this.safeEmit('resolution', row);
       if (r.outcome === null) continue;
@@ -196,6 +217,8 @@ export class CoreLoop {
     const cpTs = tsToMs(cp.summary?.timestamp);
     const transfers = decodeCheckpoint(cp);
     const sightings = this.sightingsOf(transfers);
+    // 0) retry resolutions whose write failed earlier (same outcome, same resolving checkpoint)
+    for (const { r, source: s } of [...this.unpersisted.values()]) this.applyResolutions([r], s);
     // 1) resolve existing rounds first, so a sighting never resolves itself
     this.applyResolutions(this.resolver.onCheckpoint(seq, cp.digest ?? '', cpTs, activitiesOf(this.d.cfg.move_rule, cp, transfers, sightings)), source);
     // 2) open a round per sighting: opponents frozen now, memory recalled, call written before any outcome
