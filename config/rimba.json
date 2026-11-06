@@ -12,6 +12,10 @@
       "walrus": 0.35,
       "local-dev": 0.22
     },
+    "recall_max_distance": {
+      "walrus": 0.6,
+      "local-dev": 0.35
+    },
     "limit": 20,
     "shrink": 1,
     "recall_timeout_ms": 6000

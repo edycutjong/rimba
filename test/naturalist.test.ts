@@ -61,3 +61,14 @@ describe('naturalistCall', () => {
     expect(await naturalistCall(broken, SP, 0.4, o)).toMatchObject({ call: 'abstain', p: 0.4, abstainReason: 'recall-error' });
   });
 });
+
+describe('calibration pairs', () => {
+  it('logs near-misses from the widened recall without letting them vote', async () => {
+    const far = 'huge round SUI transfer, single recipient, night UTC, new counterparty, no earlier move seen, regular';
+    const mem = new LocalNoteMemory([{ text: outcomeNote(1, far, 15, 1, '1'), created_at: before }]);
+    const r = await naturalistCall(mem, SP, 0.46, { ...o, maxDistance: 0.22, recallMaxDistance: 0.6 });
+    expect(r.call).toBe('abstain');
+    expect(r.pairs).toHaveLength(1);
+    expect(r.pairs[0]![1]).toBeGreaterThan(0.22);
+  });
+});

@@ -200,7 +200,7 @@ export class CoreLoop {
       const nat = this.nat;
       const c = await naturalistCall(mem, species, pBase, {
         maxDistance: mem ? nat.max_distance[mem.kind] : 0, horizonMin: this.d.cfg.horizon_min, shrink: nat.shrink,
-        callTimeMs: callStart, limit: nat.limit,
+        callTimeMs: callStart, limit: nat.limit, recallMaxDistance: mem ? nat.recall_max_distance?.[mem.kind] : undefined,
       });
       const row: CallRow = {
         round_id: t.txDigest,
@@ -228,6 +228,7 @@ export class CoreLoop {
         abstain_reason: c.abstainReason,
         recall_ms: c.recallMs,
         cited_vote_p: c.citedVoteP === null ? null : Number(c.citedVoteP.toFixed(4)),
+        recall_pairs: c.pairs,
       };
       this.d.store.openRound(row);
       this.d.emit?.('call', row);

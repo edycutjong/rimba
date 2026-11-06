@@ -4,6 +4,7 @@
 // Usable = same horizon, written BEFORE the call (invariant I3), not superseded by another recalled note.
 import { parseNote, type ParsedNote } from './notes.js';
 import type { NoteMemory, RecalledNote } from './memory/backend.js';
+import { parseSpecies, speciesDistance } from './taxon.js';
 
 export const P_MIN = 0.05;
 export const P_MAX = 0.95;
@@ -69,14 +70,35 @@ export function vote(recalled: RecalledNote[], base: number, o: VoteOptions): Ca
   };
 }
 
-/** Recall + vote. Any memory failure abstains (never blocks the round, never guesses). */
-export async function naturalistCall(mem: NoteMemory | null, speciesText: string, base: number, o: VoteOptions & { limit?: number }): Promise<Call & { recallMs: number; recalled: number }> {
-  if (!mem) return { p: base, call: 'abstain', cited: [], citedVoteP: null, abstainReason: 'memory-unavailable', recallMs: 0, recalled: 0 };
+/**
+ * [embedding distance, species slot distance] for the top recalled notes — the data that calibrates
+ * Walrus Memory's `maxDistance` against the deterministic species distance (scripts/calibrate.ts).
+ */
+export function recallPairs(query: string, recalled: RecalledNote[], max = 10): [number, number][] {
+  const qs = parseSpecies(query);
+  if (!qs) return [];
+  const out: [number, number][] = [];
+  for (const r of recalled.slice(0, max)) {
+    const ns = parseNote(r.text)?.species;
+    if (ns) out.push([Number(r.distance.toFixed(4)), speciesDistance(qs, ns)]);
+  }
+  return out;
+}
+
+export type NaturalistResult = Call & { recallMs: number; recalled: number; pairs: [number, number][] };
+
+/**
+ * Recall + vote. Any memory failure abstains (never blocks the round, never guesses).
+ * `recallMaxDistance` (≥ maxDistance) widens what is fetched so near-misses are logged for
+ * calibration; only notes under `maxDistance` vote.
+ */
+export async function naturalistCall(mem: NoteMemory | null, speciesText: string, base: number, o: VoteOptions & { limit?: number; recallMaxDistance?: number }): Promise<NaturalistResult> {
+  if (!mem) return { p: base, call: 'abstain', cited: [], citedVoteP: null, abstainReason: 'memory-unavailable', recallMs: 0, recalled: 0, pairs: [] };
   const t = Date.now();
   try {
-    const recalled = await mem.recall({ query: speciesText, limit: o.limit ?? 20, maxDistance: o.maxDistance });
-    return { ...vote(recalled, base, o), recallMs: Date.now() - t, recalled: recalled.length };
+    const recalled = await mem.recall({ query: speciesText, limit: o.limit ?? 20, maxDistance: Math.max(o.maxDistance, o.recallMaxDistance ?? 0) });
+    return { ...vote(recalled, base, o), recallMs: Date.now() - t, recalled: recalled.length, pairs: recallPairs(speciesText, recalled) };
   } catch {
-    return { p: base, call: 'abstain', cited: [], citedVoteP: null, abstainReason: 'recall-error', recallMs: Date.now() - t, recalled: 0 };
+    return { p: base, call: 'abstain', cited: [], citedVoteP: null, abstainReason: 'recall-error', recallMs: Date.now() - t, recalled: 0, pairs: [] };
   }
 }
