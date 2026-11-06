@@ -17,9 +17,11 @@ const notebook = new Notebook(document.getElementById('p-notebook')!);
 
 function renderStatus(s: SourceStatus) {
   const tatum = s.network_source === 'tatum';
-  const via = tatum ? 'Sui mainnet via Tatum gRPC' : s.network_source === 'public-dev' ? 'Sui mainnet via the public fullnode (development — Tatum key pending)' : 'Sui mainnet';
-  const verb = s.mode === 'live' ? 'Live from' : 'Replaying a recording of';
+  const via = tatum ? 'Sui mainnet via Tatum gRPC' : 'Sui mainnet, public fullnode';
+  const verb = s.mode === 'live' ? 'Live from' : 'Replay of';
   ticker.innerHTML = `${verb} ${esc(via)}${s.checkpoint ? ` · checkpoint <span class="mono">#${esc(s.checkpoint)}</span>` : ''}${s.note ? ` · <span class="ticker-note">${esc(s.note)}</span>` : ''}`;
+  const dev = s.network_source !== 'tatum' || (s.memory !== null && s.memory !== 'walrus');
+  document.getElementById('devpill')!.hidden = !dev;
   if (s.mode === 'live') {
     badge.textContent = 'LIVE';
     badge.className = 'badge badge--live';

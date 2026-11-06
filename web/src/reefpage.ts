@@ -15,12 +15,13 @@ export function reefHtml(): string {
       <span><i class="dot dot--open"></i>call open</span>
       <span><i class="dot dot--right"></i>call right</span>
       <span><i class="dot dot--wrong"></i>call wrong</span>
-      <span class="legend-shapes">jellyfish = SUI · ray = USDC · fish = other</span>
+      <span class="legend-shapes">jellyfish = SUI · ray = USDC · fish = other · size ∝ log(amount)</span>
       <span class="reef-count" id="reef-count"></span>
     </div>
   </section>
   <div class="side">
     <section class="card paper" id="card" aria-labelledby="card-h" aria-live="off"></section>
+    <p class="score-strip" id="strip"></p>
     <section class="slips" id="slips" aria-labelledby="slips-h"></section>
     <section class="score" id="score" aria-labelledby="score-h"></section>
   </div>
@@ -31,6 +32,7 @@ export class ReefPage {
   readonly canvas: ReefCanvas;
   private card = document.getElementById('card')!;
   private slips = document.getElementById('slips')!;
+  private strip = document.getElementById('strip')!;
   private scoreEl = document.getElementById('score')!;
   private countEl = document.getElementById('reef-count')!;
   private lastCardKey = '';
@@ -106,7 +108,8 @@ export class ReefPage {
     }
     const cur = store.focus ? store.byId.get(store.focus) : null;
     const curDone = !!cur?.resolution;
-    if (cur && !curDone) return; // still counting down
+    const hasCited = [...store.open.values()].some((r) => r.call !== 'abstain');
+    if (cur && !curDone && !(cur.call === 'abstain' && hasCited)) return; // still counting down (an abstain never holds the hero while a call with notes is open)
     if (cur && performance.now() < store.holdUntil) return; // let the stamp sit
     let best: Round | null = null;
     // prefer the newest open call that actually cites notes (the hero should show memory working); else the newest
@@ -312,6 +315,11 @@ export class ReefPage {
       : `<p class="devnote">Headline rows (Tatum stream <i>and</i> Walrus Memory) start when both keys are in. ${s.headline.counts.calls ? '' : 'Until then these numbers are development numbers and never the headline.'}</p>`;
     const { dmax, maxD, whatif } = this.judgeState();
     const hist = store.history;
+    const nv = card.never_seen;
+    const csv = esc(store.status?.csv_url ?? 'data/rounds.csv');
+    this.strip.innerHTML = nv.n
+      ? `<b>Never-seen wallets</b> <span>N <span class="mono">${nv.n}</span></span> <span>memory <a class="num ${nv.brier_memory! <= Math.min(nv.brier_base!, nv.brier_freq!) ? 'num--best' : ''}" href="${csv}" target="_blank" rel="noopener">${b4(nv.brier_memory)}</a></span> <span>base rate <a class="num" href="${csv}" target="_blank" rel="noopener">${b4(nv.brier_base)}</a></span> <span>frequency <a class="num" href="${csv}" target="_blank" rel="noopener">${b4(nv.brier_freq)}</a></span> ${hasHead ? '' : '<span class="tag tag--dev">Dev data</span>'}`
+      : '';
     this.scoreEl.innerHTML = `
       <h2 id="score-h" class="sec-h">Scorecard ${label}</h2>
       <table class="scoretable">

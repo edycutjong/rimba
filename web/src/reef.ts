@@ -24,6 +24,7 @@ function hash(s: string): number {
   return (h >>> 0) / 4294967295;
 }
 
+// presentation scale only (creature size ∝ log of amount over the logger threshold for that coin) — never shown as a number
 const THRESH: Record<Coin, number> = { SUI: 282.91, USDC: 70, other: 1 };
 
 export class ReefCanvas {
@@ -196,7 +197,7 @@ export class ReefCanvas {
       if (!c) continue;
       const [x, y] = this.pos(c, t);
       ctx.font = '600 13px "IBM Plex Mono", monospace';
-      const label = `No. ${String(c.r.n).padStart(4, '0')}`;
+      const label = `No. ${String(c.r.n).padStart(4, "0")} · ${c.coin}`;
       const tw = ctx.measureText(label).width;
       const lx = Math.min(w - tw - 14, Math.max(4, x - tw / 2 - 5)), ly = Math.max(4, y - c.rad - 28);
       ctx.fillStyle = COLORS.ink;
