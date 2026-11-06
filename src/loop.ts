@@ -24,6 +24,34 @@ export interface LoopDeps {
 const HISTORY_TTL_MS = 2 * 3600_000;
 const r6 = (x: number) => Number(x.toFixed(6));
 
+/** The largest above-threshold transfer in a tx becomes that tx's sighting (one round per tx). */
+export function sightingsOf(transfers: Transfer[], thresholds: Map<string, bigint>): Transfer[] {
+  const best = new Map<string, { t: Transfer; ratio: number }>();
+  for (const t of transfers) {
+    const th = thresholds.get(t.coinType);
+    if (th === undefined || th <= 0n || t.amountRaw < th) continue;
+    const ratio = Number((t.amountRaw * 1000n) / th);
+    const cur = best.get(t.txDigest);
+    if (!cur || ratio > cur.ratio) best.set(t.txDigest, { t, ratio });
+  }
+  return [...best.values()].map((b) => b.t);
+}
+
+/** What counts as "the sender moved again", per the configured move rule. */
+export function activitiesOf(rule: RimbaConfig['move_rule'], cp: RawCheckpoint, transfers: Transfer[], sightings: Transfer[]): Activity[] {
+  if (rule === 'any_transfer') return transfers;
+  if (rule === 'above_threshold_transfer') return sightings;
+  const ts = tsToMs(cp.summary?.timestamp);
+  const out: Activity[] = [];
+  for (const tx of cp.transactions ?? []) {
+    if (tx.effects?.status?.success === false || !tx.transaction?.sender || !tx.digest) continue;
+    out.push({ sender: normAddr(tx.transaction.sender), txDigest: tx.digest, timestampMs: tsToMs(tx.timestamp) || ts });
+  }
+  return out;
+}
+
+export const thresholdMap = (cfg: Pick<RimbaConfig, 'thresholds_raw'>) => new Map(Object.entries(cfg.thresholds_raw).map(([c, v]) => [normCoin(c), BigInt(v)]));
+
 export class CoreLoop {
   readonly base: BaseRate;
   readonly freq = new FrequencyTable();
@@ -45,7 +73,7 @@ export class CoreLoop {
     this.now = d.now ?? Date.now;
     this.base = new BaseRate(cfg.base_rate_prior);
     this.H_MS = cfg.horizon_min * 60_000;
-    this.thresholds = new Map(Object.entries(cfg.thresholds_raw).map(([c, v]) => [normCoin(c), BigInt(v)]));
+    this.thresholds = thresholdMap(cfg);
     // rebuild from disk: opponents, familiarity, pending rounds, species history
     const calls = d.store.allCalls().sort((a, b) => Number(BigInt(a.checkpoint_seq) - BigInt(b.checkpoint_seq)));
     for (const c of calls) {
@@ -99,29 +127,8 @@ export class CoreLoop {
     }
   }
 
-  /** The largest above-threshold transfer in a tx becomes that tx's sighting (one round per tx). */
   sightingsOf(transfers: Transfer[]): Transfer[] {
-    const best = new Map<string, { t: Transfer; ratio: number }>();
-    for (const t of transfers) {
-      const th = this.thresholds.get(t.coinType);
-      if (th === undefined || th <= 0n || t.amountRaw < th) continue;
-      const ratio = Number((t.amountRaw * 1000n) / th);
-      const cur = best.get(t.txDigest);
-      if (!cur || ratio > cur.ratio) best.set(t.txDigest, { t, ratio });
-    }
-    return [...best.values()].map((b) => b.t);
-  }
-
-  private activitiesOf(cp: RawCheckpoint, transfers: Transfer[], sightings: Transfer[]): Activity[] {
-    if (this.d.cfg.move_rule === 'any_transfer') return transfers;
-    if (this.d.cfg.move_rule === 'above_threshold_transfer') return sightings;
-    const ts = tsToMs(cp.summary?.timestamp);
-    const out: Activity[] = [];
-    for (const tx of cp.transactions ?? []) {
-      if (tx.effects?.status?.success === false || !tx.transaction?.sender || !tx.digest) continue;
-      out.push({ sender: normAddr(tx.transaction.sender), txDigest: tx.digest, timestampMs: tsToMs(tx.timestamp) || ts });
-    }
-    return out;
+    return sightingsOf(transfers, this.thresholds);
   }
 
   applyResolutions(rs: Resolution[], source: NetworkSource): void {
@@ -172,7 +179,7 @@ export class CoreLoop {
     const transfers = decodeCheckpoint(cp);
     const sightings = this.sightingsOf(transfers);
     // 1) resolve existing rounds first, so a sighting never resolves itself
-    this.applyResolutions(this.resolver.onCheckpoint(seq, cp.digest ?? '', cpTs, this.activitiesOf(cp, transfers, sightings)), source);
+    this.applyResolutions(this.resolver.onCheckpoint(seq, cp.digest ?? '', cpTs, activitiesOf(this.d.cfg.move_rule, cp, transfers, sightings)), source);
     // 2) open a round per sighting: opponents frozen now, memory recalled, call written before any outcome
     for (const t of sightings) {
       if (this.d.store.has(t.txDigest)) continue; // replayed checkpoint after restart
