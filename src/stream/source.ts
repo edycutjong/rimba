@@ -144,7 +144,9 @@ export class CheckpointSource {
       for (let attempt = 0; attempt < 4 && !cp; attempt++) {
         const t = Date.now();
         try {
-          cp = (await getCheckpoint(this.clients, s.toString())).checkpoint;
+          const got = (await getCheckpoint(this.clients, s.toString())).checkpoint;
+          if (!got?.sequence_number) throw new Error('GetCheckpoint returned no sequence_number');
+          cp = got;
           this.ev.onRpc?.('GetCheckpoint', Date.now() - t, true, this.clients.endpoint.source);
         } catch (e) {
           this.ev.onRpc?.('GetCheckpoint', Date.now() - t, false, this.clients.endpoint.source);

@@ -166,4 +166,19 @@ describe('CoreLoop resilience', () => {
     expect(s.store.resolution('T1')).toBeUndefined();
     expect(errors[0]).toMatch(/T1/);
   });
+
+  it('a throwing observer never strands a round: it is pending in the resolver and still resolves', async () => {
+    const s = setup();
+    const errors: string[] = [];
+    const d = (s.loop as unknown as { d: { emit: () => void; onError: (m: string) => void } }).d;
+    d.emit = () => { throw new Error('listener down'); };
+    d.onError = (m) => errors.push(m);
+    await s.loop.onCheckpoint(cp(1, T0, [{ digest: 'T1', from: A, to: B, amount: BIG }]), 'public-dev');
+    expect(s.store.has('T1')).toBe(true);
+    expect(s.loop.resolver.pendingCount).toBe(1);
+    expect(errors.some((m) => /emit call failed/.test(m))).toBe(true);
+    s.tick(16 * 60_000);
+    await s.loop.onCheckpoint(cp(2, T0 + 16 * 60_000, []), 'public-dev');
+    expect(s.store.resolution('T1')!.outcome).toBe(0);
+  });
 });

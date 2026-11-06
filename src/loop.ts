@@ -128,6 +128,15 @@ export class CoreLoop {
     }
   }
 
+  /** Observers (logs, SSE) must never break the loop: a throwing listener is reported, not propagated. */
+  private safeEmit(event: 'sighting' | 'call' | 'resolution' | 'note', data: unknown): void {
+    try {
+      this.d.emit?.(event, data);
+    } catch (e) {
+      this.d.onError?.(`emit ${event} failed: ${String(e)}`);
+    }
+  }
+
   sightingsOf(transfers: Transfer[]): Transfer[] {
     return sightingsOf(transfers, this.thresholds);
   }
@@ -154,7 +163,7 @@ export class CoreLoop {
         continue;
       }
       this.roundsResolved++;
-      this.d.emit?.('resolution', row);
+      this.safeEmit('resolution', row);
       if (r.outcome === null) continue;
       this.observe(call, r.outcome);
       if (call.species) this.remember(call, r.outcome, r.resolvingCheckpointSeq);
@@ -171,6 +180,8 @@ export class CoreLoop {
 
     const nc = this.notesCfg;
     if (call.call === 'abstain' || call.cited_vote_p == null || !call.cited_note_ids.length) return;
+    // a supersede corrects the CURRENT memory: never let a call made on another backend retire notes here
+    if (call.memory_source !== (this.d.memory()?.kind ?? 'none')) return;
     const drift = drifted(this.speciesOutcomes.get(species) ?? [], call.cited_vote_p, nc.supersede_window);
     const last = this.lastSupersede.get(species) ?? 0;
     if (drift && this.now() - last >= nc.supersede_cooldown_min * 60_000) {
@@ -201,12 +212,12 @@ export class CoreLoop {
         lastMoveAgoMs: lm !== undefined && lm <= t.timestampMs ? t.timestampMs - lm : null,
         priorSightings: prior,
       });
-      this.d.emit?.('sighting', { seq: t.checkpointSeq, digest: t.txDigest, sender: t.sender, coin: t.coinType, amount: t.amountRaw.toString(), species, source });
+      this.safeEmit('sighting', { seq: t.checkpointSeq, digest: t.txDigest, sender: t.sender, coin: t.coinType, amount: t.amountRaw.toString(), species, source });
       const mem = this.d.memory();
       const callStart = this.now();
       const nat = this.nat;
       const c = await naturalistCall(mem, species, pBase, {
-        maxDistance: mem ? nat.max_distance[mem.kind] : 0, horizonMin: this.d.cfg.horizon_min, shrink: nat.shrink,
+        maxDistance: mem ? nat.max_distance[mem.kind] : 0, horizonMin: this.d.cfg.horizon_min, shrink: nat.shrink, minEvidence: nat.min_evidence ?? 0,
         callTimeMs: callStart, limit: nat.limit, recallMaxDistance: mem ? nat.recall_max_distance?.[mem.kind] : undefined,
       });
       const row: CallRow = {
@@ -236,13 +247,15 @@ export class CoreLoop {
         recall_ms: c.recallMs,
         cited_vote_p: c.citedVoteP === null ? null : Number(c.citedVoteP.toFixed(4)),
         recall_pairs: c.pairs,
+        min_evidence: nat.min_evidence ?? 0,
       };
       this.d.store.openRound(row);
-      this.d.emit?.('call', row);
+      // a round on disk is pending in the resolver at once: nothing may run between these two lines
+      this.resolver.add({ roundId: row.round_id, sender: t.sender, txDigest: t.txDigest, checkpointSeq: seq, timestampMs: t.timestampMs, deadlineMs: t.timestampMs + this.H_MS });
       this.seenSenders.set(t.sender, prior + 1);
       for (const r of t.recipients) this.pairs.add(`${t.sender}>${r}`);
-      this.resolver.add({ roundId: row.round_id, sender: t.sender, txDigest: t.txDigest, checkpointSeq: seq, timestampMs: t.timestampMs, deadlineMs: t.timestampMs + this.H_MS });
       this.roundsOpened++;
+      this.safeEmit('call', row);
     }
     // 3) only now learn this checkpoint's moves (no same-checkpoint leakage into the species)
     for (const t of transfers) this.lastMove.set(t.sender, Math.max(this.lastMove.get(t.sender) ?? 0, t.timestampMs));
