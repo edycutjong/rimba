@@ -18,6 +18,7 @@ export function reefHtml(): string {
       <span class="legend-shapes">jellyfish = SUI · ray = USDC · fish = other · size ∝ log(amount)</span>
       <span class="reef-count" id="reef-count"></span>
     </div>
+    <section class="stamplog" id="stamplog" aria-labelledby="log-h"></section>
   </section>
   <div class="side">
     <section class="card paper" id="card" aria-labelledby="card-h" aria-live="off"></section>
@@ -33,9 +34,11 @@ export class ReefPage {
   private card = document.getElementById('card')!;
   private slips = document.getElementById('slips')!;
   private strip = document.getElementById('strip')!;
+  private log = document.getElementById('stamplog')!;
   private scoreEl = document.getElementById('score')!;
   private countEl = document.getElementById('reef-count')!;
   private lastCardKey = '';
+  private lastLogKey = '';
   private announce = document.getElementById('announce')!;
   private reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -122,8 +125,25 @@ export class ReefPage {
     this.canvas.select(store.focus);
   }
 
+  private renderLog() {
+    const rows = store.stack.slice(0, 7);
+    const key = rows.map((r) => r.round_id).join(',');
+    if (key === this.lastLogKey) return;
+    this.lastLogKey = key;
+    this.log.innerHTML = rows.length
+      ? `<h2 id="log-h" class="sec-h">Latest stamps</h2><ol class="logrows">${rows
+          .map((r) => {
+            const v = verdict(r);
+            const res = r.resolution!;
+            return `<li><span class="mini-stamp mini-stamp--${v ?? 'none'}">${v === 'right' ? 'RIGHT' : v === 'wrong' ? 'WRONG' : 'NO CALL'}</span> <span class="mono">${catNo(r.n)}</span> <span class="logs">${esc(callLine(r))} → ${res.outcome === 1 ? 'moved again' : 'did not move'}</span> <a class="link-quiet mono" href="${suiscanCheckpoint(res.resolving_checkpoint_seq)}" target="_blank" rel="noopener">#${esc(res.resolving_checkpoint_seq)} ↗</a></li>`;
+          })
+          .join('')}</ol>`
+      : '';
+  }
+
   tick() {
     this.chooseFocus();
+    this.renderLog();
     const r = store.focus ? store.byId.get(store.focus) ?? null : null;
     const c = this.canvas.count();
     this.countEl.textContent = `${store.open.size} calls open`;
@@ -318,7 +338,7 @@ export class ReefPage {
     const nv = card.never_seen;
     const csv = esc(store.status?.csv_url ?? 'data/rounds.csv');
     this.strip.innerHTML = nv.n
-      ? `<b>Never-seen wallets</b> <span>N <span class="mono">${nv.n}</span></span> <span>memory <a class="num ${nv.brier_memory! <= Math.min(nv.brier_base!, nv.brier_freq!) ? 'num--best' : ''}" href="${csv}" target="_blank" rel="noopener">${b4(nv.brier_memory)}</a></span> <span>base rate <a class="num" href="${csv}" target="_blank" rel="noopener">${b4(nv.brier_base)}</a></span> <span>frequency <a class="num" href="${csv}" target="_blank" rel="noopener">${b4(nv.brier_freq)}</a></span> ${hasHead ? '' : '<span class="tag tag--dev">Dev data</span>'}`
+      ? `<b>Never-seen wallets</b> <span>N <span class="mono">${nv.n}</span></span> <span>memory <a class="num ${nv.brier_memory! <= Math.min(nv.brier_base!, nv.brier_freq!) ? 'num--best' : ''}" href="${csv}" target="_blank" rel="noopener">${b4(nv.brier_memory)}</a></span> <span>base rate <a class="num" href="${csv}" target="_blank" rel="noopener">${b4(nv.brier_base)}</a></span> <span>frequency <a class="num" href="${csv}" target="_blank" rel="noopener">${b4(nv.brier_freq)}</a></span> ${hasHead ? '' : '<span class="tag tag--dev">Dev data</span>'} <span class="strip-v">${esc(this.skill(nv))}</span>`
       : '';
     this.scoreEl.innerHTML = `
       <h2 id="score-h" class="sec-h">Scorecard ${label}</h2>
