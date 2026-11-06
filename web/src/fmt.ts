@@ -50,7 +50,9 @@ export function verdict(r: Round): 'right' | 'wrong' | 'abstain' | null {
 }
 
 export const callLine = (r: Round) =>
-  r.call === 'abstain' ? `ABSTAIN — no close notes, base rate ${pct(r.p_base)}` : `${r.call.toUpperCase()} ${pct(r.call === 'yes' ? r.p_memory : 1 - r.p_memory)}`;
+  r.call === 'abstain'
+    ? `ABSTAIN — ${r.abstain_reason === 'too-little-evidence' ? 'too little evidence' : r.abstain_reason === 'recall-error' || r.abstain_reason === 'memory-unavailable' ? 'memory unavailable' : 'no close notes'}, base rate ${pct(r.p_base)}`
+    : `${r.call.toUpperCase()} ${pct(r.call === 'yes' ? r.p_memory : 1 - r.p_memory)}`;
 
 export function esc(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);

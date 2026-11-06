@@ -1,6 +1,7 @@
 // The naturalist: recall field notes for a species, vote, call. No LLM anywhere in this path.
 //   P(yes) = (Σ wᵢ·yesᵢ + k·base) / (Σ wᵢ·nᵢ + k),   wᵢ = 1 − dᵢ/maxDistance
-// clamped to [0.05, 0.95]. Abstains (P = base rate) when no usable note is within maxDistance.
+// clamped to [0.05, 0.95]. Abstains (P = base rate) when no usable note is within maxDistance, or when the
+// usable notes add up to less than `minEvidence` weighted observations (Σ wᵢ·nᵢ < minEvidence).
 // Usable = same horizon, written BEFORE the call (invariant I3), not superseded by another recalled note.
 import { parseNote, type ParsedNote } from './notes.js';
 import type { NoteMemory, RecalledNote } from './memory/backend.js';
@@ -17,6 +18,8 @@ export interface VoteOptions {
   /** Notes written at/after this instant are ignored (I3). */
   callTimeMs: number;
   maxCited?: number;
+  /** Abstain unless the usable notes add up to at least this many weighted observations (Σ wᵢ·nᵢ). 0 = off. */
+  minEvidence?: number;
 }
 
 export interface Citation {
@@ -33,7 +36,7 @@ export interface Call {
   cited: Citation[];
   /** Vote of the cited notes alone (no base-rate pull), used by the supersede rule. */
   citedVoteP: number | null;
-  abstainReason?: 'no-notes-within-distance' | 'memory-unavailable' | 'recall-error';
+  abstainReason?: 'no-notes-within-distance' | 'too-little-evidence' | 'memory-unavailable' | 'recall-error';
 }
 
 export const clamp = (p: number) => Math.min(P_MAX, Math.max(P_MIN, p));
@@ -60,12 +63,15 @@ export function vote(recalled: RecalledNote[], base: number, o: VoteOptions): Ca
     wn += w * note.n;
     cited.push({ id: note.specimenId, distance: Number(r.distance.toFixed(4)), yes: note.yes, n: note.n, created_at: r.created_at, w });
   }
-  const p = clamp((wy + k * base) / (wn + k));
   cited.sort((a, b) => b.w - a.w);
+  const citedOut = cited.slice(0, o.maxCited ?? 20).map(({ w: _w, ...c }) => c);
+  // Too little evidence: report the base rate, but keep the citations so the abstain is auditable.
+  if (wn < (o.minEvidence ?? 0)) return { p: base, call: 'abstain', cited: citedOut, citedVoteP: wn > 0 ? wy / wn : null, abstainReason: 'too-little-evidence' };
+  const p = clamp((wy + k * base) / (wn + k));
   return {
     p: Number(p.toFixed(4)),
     call: p >= 0.5 ? 'yes' : 'no',
-    cited: cited.slice(0, o.maxCited ?? 20).map(({ w: _w, ...c }) => c),
+    cited: citedOut,
     citedVoteP: wn > 0 ? wy / wn : null,
   };
 }

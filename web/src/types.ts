@@ -33,6 +33,8 @@ export interface Round {
   cited_created_at?: (string | null)[];
   species?: string;
   abstain_reason?: string;
+  /** Minimum weighted evidence (Σ w·n) in force when the call was made; absent = 0. */
+  min_evidence?: number;
   resolution: Resolution | null;
 }
 

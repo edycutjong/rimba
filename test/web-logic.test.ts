@@ -31,6 +31,9 @@ describe('reef web logic', () => {
     expect(strict.used).toBe(1);
     const none = revote(base, 0.04);
     expect(none).toEqual({ p: 0.5, called: false, used: 0 });
+    // the minimum-evidence abstain logged on the row is applied too (Σ w·n = w1 + w2 < 2)
+    expect(revote({ ...base, min_evidence: 2 }, 0.22)).toEqual({ p: 0.5, called: false, used: 2 });
+    expect(revote({ ...base, min_evidence: 0.5 }, 0.22).called).toBe(true);
   });
 
   it('re-derives shorter horizons from the resolving checkpoint timestamp', () => {

@@ -83,6 +83,8 @@ export interface CallRow {
   recall_ms?: number;
   /** Vote of the cited notes alone (null on abstain) — what the supersede rule compares against. */
   cited_vote_p?: number | null;
+  /** The naturalist's minimum weighted evidence (Σ w·n) in force when this call was made; absent = 0 (rule not yet in force). */
+  min_evidence?: number;
   /** [embedding distance, species slot distance] of the top recalled notes (calibration data). */
   recall_pairs?: [number, number][];
 }
@@ -104,7 +106,7 @@ export interface RimbaConfig {
   base_rate_prior: number;
   thresholds_raw: Record<string, string>;
   source: string; // where these numbers came from
-  naturalist?: { max_distance: { walrus: number; 'local-dev': number }; recall_max_distance?: { walrus: number; 'local-dev': number }; limit: number; shrink: number; recall_timeout_ms: number };
+  naturalist?: { max_distance: { walrus: number; 'local-dev': number }; recall_max_distance?: { walrus: number; 'local-dev': number }; limit: number; shrink: number; min_evidence?: number; recall_timeout_ms: number };
   notes?: { daily_budget: number; supersede_window: number; supersede_cooldown_min: number };
 }
 

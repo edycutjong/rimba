@@ -244,7 +244,9 @@ export class ReefPage {
         })
         .join('');
     }
-    const more = r.cited_note_ids.length > 3 ? `<p class="slips-more">+ ${r.cited_note_ids.length - 3} more notes within reach also voted.</p>` : '';
+    const thin = r.call === 'abstain' && take.length > 0;
+    if (thin) body = `<p class="slip slip--empty">Too little evidence: these notes add up to fewer than ${r.min_evidence ?? 2} weighted observations, so the naturalist abstained and reported the base rate (${pct(r.p_base)}).</p>` + body;
+    const more = r.cited_note_ids.length > 3 ? `<p class="slips-more">+ ${r.cited_note_ids.length - 3} more notes within reach ${thin ? 'were also recalled' : 'also voted'}.</p>` : '';
     this.slips.innerHTML = `<h2 id="slips-h" class="sec-h">Notes it cited <span class="sec-sub">(${r.cited_note_ids.length} within reach)</span></h2>${body}${more}`;
   }
 

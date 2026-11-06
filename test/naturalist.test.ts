@@ -22,6 +22,18 @@ describe('vote', () => {
     expect(c.cited.map((x) => x.id)).toEqual(['No.0001', 'No.0002']);
   });
 
+  it('abstains on too little evidence (Σ w·n < minEvidence) but keeps the citations auditable', () => {
+    // one note at distance 0.15 of maxDistance 0.3 → w = 0.5, Σ w·n = 0.5 < 2
+    const thin = vote([n(1, 1, 0.15)], 0.46, { ...o, minEvidence: 2 });
+    expect(thin).toMatchObject({ call: 'abstain', p: 0.46, abstainReason: 'too-little-evidence' });
+    expect(thin.cited.map((x) => x.id)).toEqual(['No.0001']);
+    // the same note with the rule off would have called YES
+    expect(vote([n(1, 1, 0.15)], 0.46, o).call).toBe('yes');
+    // three notes at distance 0 → Σ w·n = 3 ≥ 2 → a real call, same P as without the rule
+    const enough = [n(1, 1, 0), n(2, 1, 0), n(3, 0, 0)];
+    expect(vote(enough, 0.46, { ...o, minEvidence: 2 })).toMatchObject({ call: 'yes', p: vote(enough, 0.46, o).p });
+  });
+
   it('clamps P(yes) to [0.05, 0.95]', () => {
     const many = Array.from({ length: 50 }, (_, i) => n(i + 1, 1, 0));
     expect(vote(many, 0.5, o).p).toBe(P_MAX);

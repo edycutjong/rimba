@@ -20,7 +20,8 @@ const P_MIN = 0.05, P_MAX = 0.95;
 const clamp = (p: number) => Math.min(P_MAX, Math.max(P_MIN, p));
 export const brier = (p: number, o: number) => (p - o) ** 2;
 
-/** Re-vote a logged call using only cited notes closer than `maxD` — the same formula as src/naturalist.ts. */
+/** Re-vote a logged call using only cited notes closer than `maxD` — the same formula as src/naturalist.ts,
+ * including the minimum-evidence abstain that was in force for that call (`min_evidence`, absent = 0). */
 export function revote(r: Round, maxD: number): { p: number; called: boolean; used: number } {
   const usable: { id: string; d: number; v: NonNullable<ReturnType<typeof noteVote>> }[] = [];
   r.cited_note_ids.forEach((id, i) => {
@@ -39,6 +40,7 @@ export function revote(r: Round, maxD: number): { p: number; called: boolean; us
     wy += w * u.v.yes;
     wn += w * u.v.n;
   }
+  if (wn < (r.min_evidence ?? 0)) return { p: r.p_base, called: false, used: live.length };
   return { p: clamp((wy + r.p_base) / (wn + 1)), called: true, used: live.length };
 }
 
