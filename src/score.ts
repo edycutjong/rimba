@@ -85,7 +85,9 @@ export function scorecard(calls: CallRow[], resolutions: ResolutionRow[], cfg: P
   const ns = f.network_source ?? 'any', ms = f.memory_source ?? 'any';
   const sameQ = calls.filter((c) => c.horizon_min === cfg.horizon_min && c.move_rule === cfg.move_rule);
   const picked = sameQ.filter((c) => (ns === 'any' || c.network_source === ns) && (ms === 'any' || (c.memory_source ?? 'none') === ms));
-  const { rounds, void: voided, pending } = joinRounds(picked, resolutions);
+  // a round counts under a stream filter only if its resolution came through the same stream too
+  const res = ns === 'any' ? resolutions : resolutions.filter((r) => r.network_source === ns);
+  const { rounds, void: voided, pending } = joinRounds(picked, res);
   const days = new Map<string, Round[]>();
   for (const r of rounds) {
     const d = r.created_at.slice(0, 10);

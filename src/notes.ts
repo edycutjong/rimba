@@ -162,6 +162,13 @@ export class NoteWriter {
     this.state.written_today = Math.max(this.state.written_today, today);
   }
 
+  /** Empty the pending queue (used when the memory backend changes). Returns how many were dropped. */
+  clearQueue(): number {
+    const n = this.queue.length;
+    this.queue = [];
+    return n;
+  }
+
   /** Serializable state including the pending queue. */
   snapshot(): WriterState {
     return { ...this.state, queue: [...this.queue] };

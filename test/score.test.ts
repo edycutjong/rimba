@@ -55,4 +55,8 @@ describe('score', () => {
     expect(csv[1]).toContain('"a, b"');
     expect(csv[1]!.split(',').length).toBeGreaterThanOrEqual(CSV_COLUMNS.length);
   });
+  it('a Tatum round resolved through another stream does not count under the Tatum filter', () => {
+    const s = scorecard([call('A'), call('B')], [res('A', 1), { ...res('B', 1), network_source: 'public-dev' }], cfg, { network_source: 'tatum', memory_source: 'walrus' });
+    expect(s.all.n).toBe(1);
+  });
 });

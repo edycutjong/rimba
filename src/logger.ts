@@ -158,18 +158,12 @@ setInterval(() => {
   }
   if (!walrus) {
     walrus = tryWalrus();
-async function checkRelayer(why: string) {
-  try {
-    const c = await createMemwal(loadMemwal())?.compatibility();
-    log('walrus relayer compatibility', { why, ok: true, version: (c as { version?: string } | undefined)?.version ?? null });
-  } catch (e) {
-    log('walrus relayer compatibility', { why, ok: false, error: String(e).slice(0, 300) });
-  }
-}
-if (walrus) void checkRelayer('startup');
     if (walrus) {
       log('credential watcher: Walrus Memory credentials appeared — naturalist now recalls from and writes to Walrus Memory');
       loop.resetNoteCounts(notes);
+      // Walrus Memory starts fresh: notes queued under the local-dev stand-in are not carried over.
+      const dropped = writer.clearQueue();
+      if (dropped) log('dropped local-dev era queued notes at the memory switch', { dropped });
       void checkRelayer('credentials appeared');
     }
   }

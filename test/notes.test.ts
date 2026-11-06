@@ -109,6 +109,13 @@ describe('NoteWriter durability', () => {
     expect(w.state.written_today).toBe(2);
   });
 
+  it('clears the queue on a memory switch', () => {
+    const w = new NoteWriter(() => new LocalNoteMemory(), () => {}, {}, { now: () => t0 });
+    w.enqueue(() => 'a', SP, 'A', 'outcome', 1);
+    expect(w.clearQueue()).toBe(1);
+    expect(w.queued).toBe(0);
+  });
+
   it('persists the pending queue through a snapshot', () => {
     const a = new NoteWriter(() => new LocalNoteMemory(), () => {}, {}, { now: () => t0 });
     a.enqueue((sp) => outcomeNote(sp, SP, 15, 1, '1'), SP, 'R1', 'outcome', 1);

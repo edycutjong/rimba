@@ -20,6 +20,7 @@ export interface SourceEvents {
 export interface SourceOptions {
   resumeFromSeq?: bigint; // last delivered seq; delivery resumes at +1
   maxBackfill?: number; // checkpoints; larger gaps are reported, not fetched
+  idleMs?: number; // silent-stream watchdog (default 30 s)
 }
 
 export class CheckpointSource {
@@ -32,11 +33,16 @@ export class CheckpointSource {
   private readonly maxBackfill: number;
   private streamOpenedAt = 0;
   private deliveredSinceOpen = 0;
+  private lastDataAt = 0;
+  private watchdog: NodeJS.Timeout | null = null;
+  /** A connected stream that sends nothing for this long is cancelled and reopened. */
+  readonly idleMs: number;
 
   constructor(endpoint: Endpoint, private ev: SourceEvents, opts: SourceOptions = {}) {
     this.clients = makeClients(endpoint);
     this.lastSeq = opts.resumeFromSeq ?? null;
     this.maxBackfill = opts.maxBackfill ?? 1200;
+    this.idleMs = opts.idleMs ?? 30_000;
   }
 
   get endpoint(): Endpoint {
@@ -49,10 +55,25 @@ export class CheckpointSource {
   start(): void {
     this.stopped = false;
     this.open();
+    this.watchdog ??= setInterval(() => this.checkIdle(), Math.min(5000, this.idleMs));
+    this.watchdog.unref?.();
+  }
+
+  /** Silent-stream watchdog: keepalive catches dead sockets, not a live connection that sends no data. */
+  checkIdle(now = Date.now()): boolean {
+    if (this.stopped || !this.stream || now - this.lastDataAt < this.idleMs) return false;
+    this.ev.onStatus?.(`stream idle for ${Math.round((now - this.lastDataAt) / 1000)} s — reopening`);
+    const st = this.stream;
+    this.stream = null;
+    st.cancel();
+    this.open();
+    return true;
   }
 
   stop(): void {
     this.stopped = true;
+    if (this.watchdog) clearInterval(this.watchdog);
+    this.watchdog = null;
     this.stream?.cancel();
     this.stream = null;
     this.clients.close();
@@ -73,12 +94,14 @@ export class CheckpointSource {
     const st = subscribeCheckpoints(this.clients);
     this.stream = st;
     this.streamOpenedAt = Date.now();
+    this.lastDataAt = Date.now();
     this.deliveredSinceOpen = 0;
     this.ev.onStatus?.(`stream open on ${this.clients.endpoint.host} (${this.clients.endpoint.source})`);
     st.on('data', (r: RawSubscribeResponse) => {
       const cp = r.checkpoint;
       if (!cp?.sequence_number) return;
       this.deliveredSinceOpen++;
+      this.lastDataAt = Date.now();
       this.queue = this.queue.then(() => this.handle(cp)).catch((e) => this.ev.onStatus?.(`handler error: ${String(e)}`));
     });
     st.on('error', (e: Error & { code?: number }) => {
