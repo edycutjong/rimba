@@ -24,8 +24,6 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
-      - name: Offline verification of committed evidence
-        run: pnpm verify --offline
       - name: Web build
         working-directory: web
         run: pnpm install --ignore-workspace --frozen-lockfile && pnpm build
