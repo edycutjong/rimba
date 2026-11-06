@@ -6,5 +6,19 @@
     "0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI": "282910000000",
     "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC": "70000000"
   },
-  "source": "day-0 kill test, 62 min of mainnet checkpoints 342400542..342416271 (2026-11-07 03:49-04:51 WIB, public-dev): evidence/day0/day0.json"
+  "source": "day-0 kill test, 62 min of mainnet checkpoints 342400542..342416271 (2026-11-07 03:49-04:51 WIB, public-dev): evidence/day0/day0.json",
+  "naturalist": {
+    "max_distance": {
+      "walrus": 0.35,
+      "local-dev": 0.22
+    },
+    "limit": 20,
+    "shrink": 1,
+    "recall_timeout_ms": 6000
+  },
+  "notes": {
+    "daily_budget": 400,
+    "supersede_window": 5,
+    "supersede_cooldown_min": 120
+  }
 }

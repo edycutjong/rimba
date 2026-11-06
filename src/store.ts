@@ -14,6 +14,7 @@ export const files = {
   resolutions: () => join(DATA_DIR, 'resolutions.jsonl'),
   events: () => join(DATA_DIR, 'events.jsonl'),
   rpc: () => join(DATA_DIR, 'rpc.jsonl'),
+  notes: () => join(DATA_DIR, 'notes.jsonl'),
   state: () => join(DATA_DIR, 'state.json'),
   health: () => join(DATA_DIR, 'health.json'),
 };
@@ -73,6 +74,15 @@ export interface CallRow {
   p_freq: number;
   cited_note_ids: string[];
   cited_distances: number[];
+  // ---- core loop fields (absent on rows from before the naturalist was wired) ----
+  species?: string;
+  memory_source?: 'walrus' | 'local-dev' | 'none';
+  /** Write times of the cited notes, same order as cited_note_ids (I3 evidence). */
+  cited_created_at?: (string | null)[];
+  abstain_reason?: string;
+  recall_ms?: number;
+  /** Vote of the cited notes alone (null on abstain) — what the supersede rule compares against. */
+  cited_vote_p?: number | null;
 }
 
 export interface ResolutionRow {
@@ -92,6 +102,8 @@ export interface RimbaConfig {
   base_rate_prior: number;
   thresholds_raw: Record<string, string>;
   source: string; // where these numbers came from
+  naturalist?: { max_distance: { walrus: number; 'local-dev': number }; limit: number; shrink: number; recall_timeout_ms: number };
+  notes?: { daily_budget: number; supersede_window: number; supersede_cooldown_min: number };
 }
 
 export function loadConfig(): RimbaConfig {
@@ -99,4 +111,60 @@ export function loadConfig(): RimbaConfig {
   const c = readJson<RimbaConfig>(p);
   if (!c) throw new Error(`missing ${p}`);
   return c;
+}
+
+/** A round's predictions must be on disk before its outcome exists (I1); notes it cites must predate it (I3). */
+export class InvariantError extends Error {}
+
+export function checkI3(call: Pick<CallRow, 'round_id' | 'created_at' | 'cited_note_ids' | 'cited_created_at'>): void {
+  const t = Date.parse(call.created_at);
+  (call.cited_created_at ?? []).forEach((c, i) => {
+    if (c && !(Date.parse(c) < t)) throw new InvariantError(`I3: round ${call.round_id} cites ${call.cited_note_ids[i]} written ${c}, not before call ${call.created_at}`);
+  });
+}
+
+/**
+ * The only writer of calls.jsonl / resolutions.jsonl. Calls are appended at call time; a resolution
+ * is appended later, keyed by round_id, and is refused unless its call is already on disk, unresolved,
+ * and older than the resolution.
+ */
+export class RoundStore {
+  private calls = new Map<string, CallRow>();
+  private resolved = new Map<string, ResolutionRow>();
+  constructor(private callsPath = files.calls(), private resPath = files.resolutions()) {
+    for (const c of readJsonl<CallRow>(callsPath)) this.calls.set(c.round_id, c);
+    for (const r of readJsonl<ResolutionRow>(resPath)) this.resolved.set(r.round_id, r);
+  }
+
+  has(roundId: string): boolean {
+    return this.calls.has(roundId);
+  }
+  call(roundId: string): CallRow | undefined {
+    return this.calls.get(roundId);
+  }
+  resolution(roundId: string): ResolutionRow | undefined {
+    return this.resolved.get(roundId);
+  }
+  allCalls(): CallRow[] {
+    return [...this.calls.values()];
+  }
+  get size(): number {
+    return this.calls.size;
+  }
+
+  openRound(row: CallRow): void {
+    if (this.calls.has(row.round_id)) throw new InvariantError(`round ${row.round_id} already open`);
+    checkI3(row);
+    appendJsonl(this.callsPath, row);
+    this.calls.set(row.round_id, row);
+  }
+
+  resolveRound(row: ResolutionRow): void {
+    const call = this.calls.get(row.round_id);
+    if (!call) throw new InvariantError(`I1: resolution for unknown round ${row.round_id}`);
+    if (this.resolved.has(row.round_id)) throw new InvariantError(`I1: round ${row.round_id} already resolved`);
+    if (Date.parse(row.resolved_at) < Date.parse(call.created_at)) throw new InvariantError(`I1: resolution of ${row.round_id} predates its call`);
+    appendJsonl(this.resPath, row);
+    this.resolved.set(row.round_id, row);
+  }
 }
