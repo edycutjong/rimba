@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { CoreLoop } from '../src/loop.js';
 import { LocalNoteMemory } from '../src/memory/backend.js';
-import { NoteWriter, type NoteRecord } from '../src/notes.js';
+import { NoteWriter, outcomeNote, parseNote, type NoteRecord } from '../src/notes.js';
 import { checkI3, InvariantError, malformedLines, repairTornTail, RoundStore, type CallRow, type RimbaConfig } from '../src/store.js';
 import type { RawCheckpoint } from '../src/stream/client.js';
 
@@ -174,6 +174,28 @@ describe('CoreLoop resilience', () => {
     await s.loop.onCheckpoint(cp(3, T0 + 17 * 60_000, []), 'public-dev');
     expect(s.store.resolution('T1')).toMatchObject({ outcome: 0, resolving_checkpoint_seq: '2' });
     expect(s.loop.holdCursorAt()).toBeNull();
+  });
+
+  it('a drift tally supersedes the outcome notes it summarises, so no outcome is counted twice', async () => {
+    const s = setup();
+    const addr = (c: string) => '0x' + c.repeat(64);
+    await s.loop.onCheckpoint(cp(1, T0, [{ digest: 'T1', from: addr('1'), to: addr('a'), amount: BIG }]), 'public-dev');
+    const species = s.store.call('T1')!.species!;
+    await s.mem.remember([outcomeNote(901, species, 15, 1, '1'), outcomeNote(902, species, 15, 1, '1'), outcomeNote(903, species, 15, 1, '1')]);
+    for (let i = 2; i <= 6; i++) {
+      s.tick(1000);
+      await s.loop.onCheckpoint(cp(i, T0 + i * 1000, [{ digest: `T${i}`, from: addr(String(i)), to: addr('abcdef'[i - 1]!), amount: BIG }]), 'public-dev');
+      expect(s.store.call(`T${i}`)).toMatchObject({ species, call: 'yes' });
+    }
+    s.tick(16 * 60_000);
+    await s.loop.onCheckpoint(cp(7, T0 + 17 * 60_000, []), 'public-dev'); // all six resolve NO
+    const q = s.writer.snapshot().queue!;
+    const outcomeIds = q.filter((x) => x.kind === 'outcome').slice(0, 5).map((x) => `No.${String(x.specimen).padStart(4, '0')}`);
+    const tally = q.find((x) => x.kind === 'supersede')!;
+    const sup = parseNote(tally.text)!.supersedes;
+    expect(parseNote(tally.text)).toMatchObject({ yes: 0, n: 5 });
+    for (const id of outcomeIds) expect(sup).toContain(id);
+    expect(sup).toContain('No.0901');
   });
 
   it('one sighting that cannot be opened skips that round only — the open book is not voided', async () => {

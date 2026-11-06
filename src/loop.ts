@@ -65,6 +65,9 @@ export class CoreLoop {
   private speciesOutcomes = new Map<string, (0 | 1)[]>();
   private speciesNotes = new Map<string, { n: number; yes: number }>();
   private lastSupersede = new Map<string, number>();
+  /** Specimen ids of each species' most recent outcome notes, and of its latest tally (supersede) note. */
+  private speciesNoteIds = new Map<string, string[]>();
+  private lastTallyId = new Map<string, string>();
   private now: () => number;
   roundsOpened = 0;
   roundsResolved = 0;
@@ -90,6 +93,18 @@ export class CoreLoop {
       }
     }
     for (const n of d.notes) this.countNote(n);
+    const num = (id: string) => Number(id.replace(/^No\./, '')) || 0;
+    for (const n of [...d.notes].filter((x) => x.ok).sort((a, b) => num(a.specimen_id) - num(b.specimen_id))) {
+      if (n.kind === 'outcome') this.trackNoteId(n.species, n.specimen_id);
+      else this.lastTallyId.set(n.species, n.specimen_id);
+    }
+  }
+
+  private trackNoteId(species: string, id: string) {
+    const arr = this.speciesNoteIds.get(species) ?? [];
+    arr.push(id);
+    if (arr.length > 20) arr.shift();
+    this.speciesNoteIds.set(species, arr);
   }
 
   private get nat() {
@@ -197,7 +212,7 @@ export class CoreLoop {
     // novel species first; a well-covered species whose outcome matches its notes is lowest priority
     let priority = !known || known.n < 3 ? 2 : 1;
     if (known && known.n >= 8 && (known.yes / known.n >= 0.5 ? 1 : 0) === outcome) priority = 0;
-    this.d.writer.enqueue((sp) => outcomeNote(sp, species, call.horizon_min, outcome, checkpoint), species, call.round_id, 'outcome', priority);
+    this.trackNoteId(species, this.d.writer.enqueue((sp) => outcomeNote(sp, species, call.horizon_min, outcome, checkpoint), species, call.round_id, 'outcome', priority));
 
     const nc = this.notesCfg;
     if (call.call === 'abstain' || call.cited_vote_p == null || !call.cited_note_ids.length) return;
@@ -207,8 +222,12 @@ export class CoreLoop {
     const last = this.lastSupersede.get(species) ?? 0;
     if (drift && this.now() - last >= nc.supersede_cooldown_min * 60_000) {
       this.lastSupersede.set(species, this.now());
-      const sup = call.cited_note_ids.slice(0, 3);
-      this.d.writer.enqueue((sp) => supersedeNote(sp, species, call.horizon_min, drift.yes, drift.n, sup, checkpoint), species, call.round_id, 'supersede', 3);
+      // the tally replaces the notes it summarises (its window's outcome notes and the previous tally) as well as
+      // the cited notes it corrects, so no outcome is counted twice when both are recalled
+      const window = (this.speciesNoteIds.get(species) ?? []).slice(-drift.n);
+      const prevTally = this.lastTallyId.get(species);
+      const sup = [...new Set([...call.cited_note_ids.slice(0, 3), ...window, ...(prevTally ? [prevTally] : [])])];
+      this.lastTallyId.set(species, this.d.writer.enqueue((sp) => supersedeNote(sp, species, call.horizon_min, drift.yes, drift.n, sup, checkpoint), species, call.round_id, 'supersede', 3));
     }
   }
 
