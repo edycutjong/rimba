@@ -122,8 +122,11 @@ export class InvariantError extends Error {}
 
 export function checkI3(call: Pick<CallRow, 'round_id' | 'created_at' | 'cited_note_ids' | 'cited_created_at'>): void {
   const t = Date.parse(call.created_at);
-  (call.cited_created_at ?? []).forEach((c, i) => {
-    if (c && !(Date.parse(c) < t)) throw new InvariantError(`I3: round ${call.round_id} cites ${call.cited_note_ids[i]} written ${c}, not before call ${call.created_at}`);
+  const at = call.cited_created_at ?? [];
+  // every citation must carry the time its note was written, and that time must precede the call
+  if (call.cited_note_ids.length && at.length !== call.cited_note_ids.length) throw new InvariantError(`I3: round ${call.round_id} cites ${call.cited_note_ids.length} notes but logs ${at.length} creation times`);
+  at.forEach((c, i) => {
+    if (!c || !(Date.parse(c) < t)) throw new InvariantError(`I3: round ${call.round_id} cites ${call.cited_note_ids[i]} written ${c}, not before call ${call.created_at}`);
   });
 }
 

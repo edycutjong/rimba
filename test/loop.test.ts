@@ -149,6 +149,9 @@ describe('RoundStore invariants', () => {
     expect(() => checkI3(row('R', '2026-11-07T00:00:10Z', { cited_note_ids: ['No.0001'], cited_created_at: ['2026-11-07T00:00:10Z'] }))).toThrow(/I3/);
     expect(() => checkI3(row('R', '2026-11-07T00:00:10Z', { cited_note_ids: ['No.0001'], cited_created_at: ['2026-11-07T00:00:09Z'] }))).not.toThrow();
     expect(() => fresh().openRound(row('R', '2026-11-07T00:00:10Z', { cited_note_ids: ['No.0001'], cited_created_at: ['2026-11-07T00:00:11Z'] }))).toThrow(InvariantError);
+    // fail-closed: a citation without its creation time, or a missing times array, is refused
+    expect(() => checkI3(row('R', '2026-11-07T00:00:10Z', { cited_note_ids: ['No.0001'], cited_created_at: [null] }))).toThrow(/I3/);
+    expect(() => checkI3(row('R', '2026-11-07T00:00:10Z', { cited_note_ids: ['No.0001'], cited_created_at: undefined }))).toThrow(/creation times/);
   });
 });
 

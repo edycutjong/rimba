@@ -92,6 +92,8 @@ export class CheckpointSource {
   private open(): void {
     if (this.stopped) return;
     const st = subscribeCheckpoints(this.clients);
+    // provenance is fixed at ingress: a checkpoint queued before an endpoint switch keeps its own source
+    const source = this.clients.endpoint.source;
     this.stream = st;
     this.streamOpenedAt = Date.now();
     this.lastDataAt = Date.now();
@@ -102,7 +104,7 @@ export class CheckpointSource {
       if (!cp?.sequence_number) return;
       this.deliveredSinceOpen++;
       this.lastDataAt = Date.now();
-      this.queue = this.queue.then(() => this.handle(cp)).catch((e) => this.ev.onStatus?.(`handler error: ${String(e)}`));
+      this.queue = this.queue.then(() => this.handle(cp, source)).catch((e) => this.ev.onStatus?.(`handler error: ${String(e)}`));
     });
     st.on('error', (e: Error & { code?: number }) => {
       if (st !== this.stream) return; // superseded stream
@@ -123,11 +125,11 @@ export class CheckpointSource {
     });
   }
 
-  private async handle(cp: RawCheckpoint): Promise<void> {
+  private async handle(cp: RawCheckpoint, source: Endpoint['source']): Promise<void> {
     const seq = BigInt(cp.sequence_number!);
     if (this.lastSeq !== null && seq <= this.lastSeq) return; // duplicate after reconnect
     if (this.lastSeq !== null && seq > this.lastSeq + 1n) await this.backfill(this.lastSeq + 1n, seq - 1n);
-    await this.deliver(cp);
+    await this.deliver(cp, source);
   }
 
   private async backfill(from: bigint, to: bigint): Promise<void> {
@@ -141,15 +143,18 @@ export class CheckpointSource {
     this.ev.onStatus?.(`backfilling ${start}..${to} (${Number(to - start + 1n)} checkpoints)`);
     for (let s = start; s <= to; s++) {
       let cp: RawCheckpoint | undefined;
+      let cpSource: Endpoint['source'] = this.clients.endpoint.source;
       for (let attempt = 0; attempt < 4 && !cp; attempt++) {
         const t = Date.now();
+        const c = this.clients; // the client this attempt actually uses labels the checkpoint it returns
         try {
-          const got = (await getCheckpoint(this.clients, s.toString())).checkpoint;
+          const got = (await getCheckpoint(c, s.toString())).checkpoint;
           if (!got?.sequence_number) throw new Error('GetCheckpoint returned no sequence_number');
           cp = got;
-          this.ev.onRpc?.('GetCheckpoint', Date.now() - t, true, this.clients.endpoint.source);
+          cpSource = c.endpoint.source;
+          this.ev.onRpc?.('GetCheckpoint', Date.now() - t, true, c.endpoint.source);
         } catch (e) {
-          this.ev.onRpc?.('GetCheckpoint', Date.now() - t, false, this.clients.endpoint.source);
+          this.ev.onRpc?.('GetCheckpoint', Date.now() - t, false, c.endpoint.source);
           if (attempt === 3) this.ev.onStatus?.(`GetCheckpoint ${s} failed: ${String(e)}`);
           await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
         }
@@ -159,12 +164,12 @@ export class CheckpointSource {
         this.lastSeq = s;
         continue;
       }
-      await this.deliver(cp);
+      await this.deliver(cp, cpSource);
     }
   }
 
-  private async deliver(cp: RawCheckpoint): Promise<void> {
+  private async deliver(cp: RawCheckpoint, source: Endpoint['source']): Promise<void> {
     this.lastSeq = BigInt(cp.sequence_number!);
-    await this.ev.onCheckpoint(cp, this.clients.endpoint.source);
+    await this.ev.onCheckpoint(cp, source);
   }
 }

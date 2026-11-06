@@ -40,12 +40,14 @@ export function parseNote(text: string): ParsedNote | null {
   const single = m[4] !== undefined;
   const yes = single ? (m[4] === 'YES' ? 1 : 0) : Number(m[7]);
   const n = single ? 1 : Number(m[8]);
-  if (!(n > 0) || yes < 0 || yes > n) return null;
+  const horizon = Number(single ? m[3] : m[6]);
+  // notes come back from a remote memory: only small safe integers count as evidence
+  if (![yes, n, horizon].every(Number.isSafeInteger) || !(n > 0) || n > 1000 || yes < 0 || yes > n || !(horizon > 0)) return null;
   return {
     specimenId: m[1]!,
     species,
     speciesText: m[2]!,
-    horizonMin: Number(single ? m[3] : m[6]),
+    horizonMin: horizon,
     yes,
     n,
     supersedes: m[9] ? m[9].split(',').map((s) => s.trim()).filter(Boolean) : [],

@@ -41,6 +41,11 @@ describe('vote', () => {
     expect(vote(none, 0.5, o).p).toBe(P_MIN);
   });
 
+  it('I3 fail-closed: a recalled note with no creation time, or a non-finite distance, never votes', () => {
+    const c = vote([{ text: outcomeNote(1, SP, 15, 1, '1'), distance: 0.01 }, n(2, 1, Number.NaN), n(3, 1, -0.1)], 0.46, o);
+    expect(c).toMatchObject({ call: 'abstain', cited: [] });
+  });
+
   it('I3: ignores notes written at or after the call', () => {
     const c = vote([n(1, 1, 0.01, new Date(T).toISOString()), n(2, 1, 0.01, new Date(T + 1).toISOString())], 0.46, o);
     expect(c.call).toBe('abstain');

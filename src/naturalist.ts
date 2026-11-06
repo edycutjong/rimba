@@ -2,7 +2,8 @@
 //   P(yes) = (Σ wᵢ·yesᵢ + k·base) / (Σ wᵢ·nᵢ + k),   wᵢ = 1 − dᵢ/maxDistance
 // clamped to [0.05, 0.95]. Abstains (P = base rate) when no usable note is within maxDistance, or when the
 // usable notes add up to less than `minEvidence` weighted observations (Σ wᵢ·nᵢ < minEvidence).
-// Usable = same horizon, written BEFORE the call (invariant I3), not superseded by another recalled note.
+// Usable = same horizon, with a creation time that is BEFORE the call (invariant I3; no timestamp = not usable),
+// not superseded by another recalled note.
 import { parseNote, type ParsedNote } from './notes.js';
 import type { NoteMemory, RecalledNote } from './memory/backend.js';
 import { parseSpecies, speciesDistance } from './taxon.js';
@@ -45,8 +46,9 @@ export function vote(recalled: RecalledNote[], base: number, o: VoteOptions): Ca
   const k = o.shrink ?? 1;
   const usable: { note: ParsedNote; r: RecalledNote }[] = [];
   for (const r of recalled) {
-    if (!(r.distance < o.maxDistance)) continue;
-    if (r.created_at && !(Date.parse(r.created_at) < o.callTimeMs)) continue; // I3
+    if (!(Number.isFinite(r.distance) && r.distance >= 0 && r.distance < o.maxDistance)) continue;
+    // I3, fail-closed: a note with no parseable creation time cannot prove it predates the call
+    if (!r.created_at || !(Date.parse(r.created_at) < o.callTimeMs)) continue;
     const note = parseNote(r.text);
     if (!note || note.horizonMin !== o.horizonMin) continue;
     usable.push({ note, r });

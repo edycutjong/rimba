@@ -10,6 +10,9 @@ describe('note text', () => {
     expect(t).toBe(`Specimen No.0412 · ${SP} · moved again within 15 min: YES (checkpoint 342417305)`);
     expect(parseNote(t)).toMatchObject({ specimenId: 'No.0412', horizonMin: 15, yes: 1, n: 1, supersedes: [], checkpoint: '342417305', speciesText: SP });
     expect(parseNote(outcomeNote(7, SP, 15, 0, '1'))).toMatchObject({ yes: 0, n: 1 });
+    // counts from a remote memory must be small safe integers
+    expect(parseNote(supersedeNote(8, SP, 15, 3, 5, ['No.0001'], '1').replace(/3 of 5/, '1 of 99999999999999999999').replace('last 5', 'last 99999999999999999999'))).toBeNull();
+    expect(parseNote(supersedeNote(8, SP, 15, 3, 5, ['No.0001'], '1'))).toMatchObject({ yes: 3, n: 5 });
   });
 
   it('formats and parses a superseding tally note', () => {
