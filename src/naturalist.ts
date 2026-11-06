@@ -60,7 +60,7 @@ export function vote(recalled: RecalledNote[], base: number, o: VoteOptions): Ca
   let wy = 0, wn = 0;
   const cited: (Citation & { w: number })[] = [];
   for (const { note, r } of live) {
-    const w = Math.max(0.05, 1 - r.distance / o.maxDistance);
+    const w = 1 - r.distance / o.maxDistance; // in (0, 1]: usable notes are strictly inside maxDistance
     wy += w * note.yes;
     wn += w * note.n;
     cited.push({ id: note.specimenId, distance: Number(r.distance.toFixed(4)), yes: note.yes, n: note.n, created_at: r.created_at, w });

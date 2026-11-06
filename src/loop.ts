@@ -223,65 +223,75 @@ export class CoreLoop {
     this.applyResolutions(this.resolver.onCheckpoint(seq, cp.digest ?? '', cpTs, activitiesOf(this.d.cfg.move_rule, cp, transfers, sightings)), source);
     // 2) open a round per sighting: opponents frozen now, memory recalled, call written before any outcome
     for (const t of sightings) {
-      if (this.d.store.has(t.txDigest)) continue; // replayed checkpoint after restart
-      const pBase = r6(this.base.p());
-      const pFreq = r6(this.freq.p(t.sender, pBase));
-      const prior = this.seenSenders.get(t.sender) ?? 0;
-      const lm = this.lastMove.get(t.sender);
-      const species = speciesSentence({
-        coinType: t.coinType, amountRaw: t.amountRaw, thresholdRaw: this.thresholds.get(t.coinType)!,
-        recipientsCount: t.recipients.length, timestampMs: t.timestampMs,
-        repeatCounterparty: t.recipients.some((r) => this.pairs.has(`${t.sender}>${r}`)),
-        lastMoveAgoMs: lm !== undefined && lm <= t.timestampMs ? t.timestampMs - lm : null,
-        priorSightings: prior,
-      });
-      this.safeEmit('sighting', { seq: t.checkpointSeq, digest: t.txDigest, sender: t.sender, coin: t.coinType, amount: t.amountRaw.toString(), species, source });
-      const mem = this.d.memory();
-      const callStart = this.now();
-      const nat = this.nat;
-      const c = await naturalistCall(mem, species, pBase, {
-        maxDistance: mem ? nat.max_distance[mem.kind] : 0, horizonMin: this.d.cfg.horizon_min, shrink: nat.shrink, minEvidence: nat.min_evidence ?? 0,
-        callTimeMs: callStart, limit: nat.limit, recallMaxDistance: mem ? nat.recall_max_distance?.[mem.kind] : undefined,
-      });
-      const row: CallRow = {
-        round_id: t.txDigest,
-        created_at: new Date(Math.max(this.now(), callStart + 1)).toISOString(),
-        network_source: source,
-        checkpoint_seq: t.checkpointSeq,
-        checkpoint_ts: t.timestampMs,
-        tx_digest: t.txDigest,
-        sender: t.sender,
-        recipient: t.recipients[0] ?? '',
-        coin_type: t.coinType,
-        amount_raw: t.amountRaw.toString(),
-        horizon_min: this.d.cfg.horizon_min,
-        move_rule: this.d.cfg.move_rule,
-        sender_seen_before: prior > 0,
-        p_memory: c.p,
-        call: c.call,
-        p_base: pBase,
-        p_freq: pFreq,
-        cited_note_ids: c.cited.map((x) => x.id),
-        cited_distances: c.cited.map((x) => x.distance),
-        species,
-        memory_source: mem?.kind ?? 'none',
-        cited_created_at: c.cited.map((x) => x.created_at ?? null),
-        abstain_reason: c.abstainReason,
-        recall_ms: c.recallMs,
-        cited_vote_p: c.citedVoteP === null ? null : Number(c.citedVoteP.toFixed(4)),
-        recall_pairs: c.pairs,
-        min_evidence: nat.min_evidence ?? 0,
-      };
-      this.d.store.openRound(row);
-      // a round on disk is pending in the resolver at once: nothing may run between these two lines
-      this.resolver.add({ roundId: row.round_id, sender: t.sender, txDigest: t.txDigest, checkpointSeq: seq, timestampMs: t.timestampMs, deadlineMs: t.timestampMs + this.H_MS });
-      this.seenSenders.set(t.sender, prior + 1);
-      for (const r of t.recipients) this.pairs.add(`${t.sender}>${r}`);
-      this.roundsOpened++;
-      this.safeEmit('call', row);
+      // one bad sighting (e.g. an I3 refusal at openRound) skips that round only — it never voids the open book
+      try {
+        await this.openSighting(t, seq, source);
+      } catch (e) {
+        this.d.onError?.(`sighting ${t.txDigest} skipped: ${String(e)}`);
+      }
     }
     // 3) only now learn this checkpoint's moves (no same-checkpoint leakage into the species)
     for (const t of transfers) this.lastMove.set(t.sender, Math.max(this.lastMove.get(t.sender) ?? 0, t.timestampMs));
+  }
+
+  private async openSighting(t: Transfer, seq: bigint, source: NetworkSource): Promise<void> {
+    if (this.d.store.has(t.txDigest)) return; // replayed checkpoint after restart
+    const pBase = r6(this.base.p());
+    const pFreq = r6(this.freq.p(t.sender, pBase));
+    const prior = this.seenSenders.get(t.sender) ?? 0;
+    const lm = this.lastMove.get(t.sender);
+    const species = speciesSentence({
+      coinType: t.coinType, amountRaw: t.amountRaw, thresholdRaw: this.thresholds.get(t.coinType)!,
+      recipientsCount: t.recipients.length, timestampMs: t.timestampMs,
+      repeatCounterparty: t.recipients.some((r) => this.pairs.has(`${t.sender}>${r}`)),
+      lastMoveAgoMs: lm !== undefined && lm <= t.timestampMs ? t.timestampMs - lm : null,
+      priorSightings: prior,
+    });
+    this.safeEmit('sighting', { seq: t.checkpointSeq, digest: t.txDigest, sender: t.sender, coin: t.coinType, amount: t.amountRaw.toString(), species, source });
+    const mem = this.d.memory();
+    const callStart = this.now();
+    const nat = this.nat;
+    const c = await naturalistCall(mem, species, pBase, {
+      maxDistance: mem ? nat.max_distance[mem.kind] : 0, horizonMin: this.d.cfg.horizon_min, shrink: nat.shrink, minEvidence: nat.min_evidence ?? 0,
+      callTimeMs: callStart, limit: nat.limit, recallMaxDistance: mem ? nat.recall_max_distance?.[mem.kind] : undefined,
+    });
+    const row: CallRow = {
+      round_id: t.txDigest,
+      created_at: new Date(Math.max(this.now(), callStart + 1)).toISOString(),
+      network_source: source,
+      checkpoint_seq: t.checkpointSeq,
+      checkpoint_ts: t.timestampMs,
+      tx_digest: t.txDigest,
+      sender: t.sender,
+      recipient: t.recipients[0] ?? '',
+      coin_type: t.coinType,
+      amount_raw: t.amountRaw.toString(),
+      horizon_min: this.d.cfg.horizon_min,
+      move_rule: this.d.cfg.move_rule,
+      sender_seen_before: prior > 0,
+      p_memory: c.p,
+      call: c.call,
+      p_base: pBase,
+      p_freq: pFreq,
+      cited_note_ids: c.cited.map((x) => x.id),
+      cited_distances: c.cited.map((x) => x.distance),
+      species,
+      memory_source: mem?.kind ?? 'none',
+      cited_created_at: c.cited.map((x) => x.created_at ?? null),
+      abstain_reason: c.abstainReason,
+      recall_ms: c.recallMs,
+      cited_vote_p: c.citedVoteP === null ? null : Number(c.citedVoteP.toFixed(4)),
+      recall_pairs: c.pairs,
+      min_evidence: nat.min_evidence ?? 0,
+    };
+    this.d.store.openRound(row);
+    // a round on disk is pending in the resolver at once: nothing may run between these two lines
+    this.resolver.add({ roundId: row.round_id, sender: t.sender, txDigest: t.txDigest, checkpointSeq: seq, timestampMs: t.timestampMs, deadlineMs: t.timestampMs + this.H_MS });
+    this.seenSenders.set(t.sender, prior + 1);
+    for (const r of t.recipients) this.pairs.add(`${t.sender}>${r}`);
+    this.roundsOpened++;
+    this.safeEmit('call', row);
+  
   }
 
   /** Drop stale history so a long-running logger stays small. */

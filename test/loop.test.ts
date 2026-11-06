@@ -176,6 +176,21 @@ describe('CoreLoop resilience', () => {
     expect(s.loop.holdCursorAt()).toBeNull();
   });
 
+  it('one sighting that cannot be opened skips that round only — the open book is not voided', async () => {
+    const s = setup();
+    const errors: string[] = [];
+    (s.loop as unknown as { d: { onError: (m: string) => void } }).d.onError = (m) => errors.push(m);
+    await s.loop.onCheckpoint(cp(1, T0, [{ digest: 'T1', from: A, to: B, amount: BIG }]), 'public-dev');
+    const orig = s.store.openRound.bind(s.store);
+    s.store.openRound = (row) => { if (row.round_id === 'T2') throw new InvariantError('I3: refused'); orig(row); };
+    await s.loop.onCheckpoint(cp(2, T0 + 1000, [{ digest: 'T2', from: C, to: D, amount: BIG }, { digest: 'T3', from: D, to: C, amount: BIG }]), 'public-dev');
+    expect(s.store.has('T2')).toBe(false);
+    expect(s.store.has('T3')).toBe(true);
+    expect(s.store.resolution('T1')).toBeUndefined();
+    expect(s.loop.resolver.pendingCount).toBe(2);
+    expect(errors[0]).toMatch(/T2 skipped/);
+  });
+
   it('cuts a torn final record off a ledger so the next append starts on a record boundary', () => {
     const dir = mkdtempSync(join(tmpdir(), 'rimba-torn-'));
     const path = join(dir, 'calls.jsonl');

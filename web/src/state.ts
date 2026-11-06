@@ -36,7 +36,7 @@ export function revote(r: Round, maxD: number): { p: number; called: boolean; us
   if (!live.length) return { p: r.p_base, called: false, used: 0 };
   let wy = 0, wn = 0;
   for (const u of live) {
-    const w = Math.max(0.05, 1 - u.d / maxD);
+    const w = 1 - u.d / maxD;
     wy += w * u.v.yes;
     wn += w * u.v.n;
   }
