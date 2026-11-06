@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BaseRate, brier, FrequencyTable } from '../src/predict.js';
+import { BaseRate, brier, FrequencyTable } from '../src/baselines.js';
 
 describe('baselines', () => {
   it('base rate starts at the prior and moves toward observed outcomes', () => {

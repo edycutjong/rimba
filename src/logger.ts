@@ -6,7 +6,7 @@
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadMemwal, loadTatum } from './config.js';
-import { BaseRate, FrequencyTable } from './predict.js';
+import { BaseRate, FrequencyTable } from './baselines.js';
 import { Resolver, type Activity, type Resolution } from './resolver.js';
 import { chooseEndpoint, type NetworkSource, type RawCheckpoint } from './stream/client.js';
 import { decodeCheckpoint, normAddr, normCoin, tsToMs, type Transfer } from './stream/decode.js';
