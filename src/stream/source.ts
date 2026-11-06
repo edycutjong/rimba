@@ -35,6 +35,8 @@ export class CheckpointSource {
   private deliveredSinceOpen = 0;
   private lastDataAt = 0;
   private watchdog: NodeJS.Timeout | null = null;
+  /** Bumped by every (re)open: a reconnect timer from an older stream must not open a second subscription. */
+  private gen = 0;
   /** A connected stream that sends nothing for this long is cancelled and reopened. */
   readonly idleMs: number;
 
@@ -91,6 +93,11 @@ export class CheckpointSource {
 
   private open(): void {
     if (this.stopped) return;
+    const g = ++this.gen;
+    // exactly one live subscription: whatever was open before is cancelled first
+    const prev = this.stream;
+    this.stream = null;
+    prev?.cancel();
     const st = subscribeCheckpoints(this.clients);
     // provenance is fixed at ingress: a checkpoint queued before an endpoint switch keeps its own source
     const source = this.clients.endpoint.source;
@@ -116,12 +123,12 @@ export class CheckpointSource {
       // A stream that delivered checkpoints was healthy (the public node resets every ~30 s);
       // only back off exponentially when connects fail outright.
       this.backoffMs = this.deliveredSinceOpen > 0 ? 1000 : Math.min(30_000, this.backoffMs * 2);
-      setTimeout(() => this.open(), wait);
+      setTimeout(() => { if (g === this.gen) this.open(); }, wait);
     });
     st.on('end', () => {
       if (st !== this.stream || this.stopped) return;
       this.stream = null;
-      setTimeout(() => this.open(), this.backoffMs);
+      setTimeout(() => { if (g === this.gen) this.open(); }, this.backoffMs);
     });
   }
 
