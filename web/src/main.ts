@@ -36,7 +36,7 @@ const sink: Sink = {
   onResolution: (r, instant) => reef.onResolution(r, instant),
   onNotes: (n) => {
     Object.assign(store.notes, n);
-    reef.tick(true);
+    reef.tick();
   },
   onScore: (s) => {
     store.score = s;

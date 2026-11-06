@@ -70,7 +70,7 @@ export class ReefPage {
     if (!store.byId.has(id)) return;
     store.pinned = id;
     store.focus = id;
-    this.tick(true);
+    this.tick();
   }
 
   onCall(r: Round, instant: boolean) {
@@ -90,23 +90,21 @@ export class ReefPage {
     }
     if (!instant && store.focus === r.round_id) store.holdUntil = performance.now() + HOLD_MS;
     if (!instant) this.announce.textContent = `Sighting ${catNo(r.n)} resolved by checkpoint ${r.resolution?.resolving_checkpoint_seq}: call ${verdict(r) ?? 'void'}.`;
-    this.tick(true);
+    this.tick();
   }
 
   /** choose the focused round: stay on it until it resolves + hold, then take the newest open call */
-  private chooseFocus(force: boolean) {
-    const cur = store.focus ? store.byId.get(store.focus) : null;
-    const curDone = !!cur?.resolution;
-    const holding = curDone && performance.now() < store.holdUntil;
-    if (cur && !curDone) return; // still counting down
-    if (cur && holding && !force) return;
-    if (cur && holding) return;
+  private chooseFocus() {
+    // a card the visitor picked stays until they ask to follow the newest call again
     if (store.pinned) {
       const p = store.byId.get(store.pinned);
-      if (p && !p.resolution) { store.focus = p.round_id; return; }
-      if (p && performance.now() < store.holdUntil) return;
+      if (p) { store.focus = p.round_id; this.canvas.select(store.focus); return; }
       store.pinned = null;
     }
+    const cur = store.focus ? store.byId.get(store.focus) : null;
+    const curDone = !!cur?.resolution;
+    if (cur && !curDone) return; // still counting down
+    if (cur && performance.now() < store.holdUntil) return; // let the stamp sit
     let best: Round | null = null;
     // prefer the newest open call that actually cites notes (the hero should show memory working); else the newest
     for (const r of store.open.values()) {
@@ -118,8 +116,8 @@ export class ReefPage {
     this.canvas.select(store.focus);
   }
 
-  tick(force = false) {
-    this.chooseFocus(force);
+  tick() {
+    this.chooseFocus();
     const r = store.focus ? store.byId.get(store.focus) ?? null : null;
     const c = this.canvas.count();
     this.countEl.textContent = `${store.open.size} calls open`;
