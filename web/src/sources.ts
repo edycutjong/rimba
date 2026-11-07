@@ -33,7 +33,18 @@ export class ReplaySource {
   private newest: Round | null = null;
   private loops = 0;
 
-  constructor(private sink: Sink, private base = import.meta.env.BASE_URL, private reason: string | null = null) {}
+  /** `focusId` (deep link `?round=<id>`) starts the replay a few chain-seconds before that round's call;
+   * `speed` (`?speed=`) is clamped to 1–60× and always shown on the card. */
+  constructor(
+    private sink: Sink,
+    private base = import.meta.env.BASE_URL,
+    private reason: string | null = null,
+    opts: { focusId?: string | null; speed?: number | null } = {},
+  ) {
+    this.focusId = opts.focusId ?? null;
+    if (opts.speed && Number.isFinite(opts.speed)) this.speed = Math.min(60, Math.max(1, Math.round(opts.speed)));
+  }
+  private focusId: string | null;
 
   async start(): Promise<void> {
     const res = await fetch(`${this.base}data/snapshot.json`, { cache: 'no-cache' });
@@ -46,9 +57,15 @@ export class ReplaySource {
     if (!rounds.length) return this.emitStatus();
     this.startAt = Date.parse(rounds[0]!.created_at);
     this.endAt = Math.max(...rounds.map((r) => (r.resolution ? Date.parse(r.resolution.resolved_at) : 0))) + 20_000;
-    // warm start: open on a moment where several calls are mid-countdown, not on an empty reef
-    const warmIdx = Math.min(rounds.length - 1, Math.max(0, Math.floor(rounds.length / 3)));
-    this.beginAt(Date.parse(rounds[warmIdx]!.created_at) + 1_000, true);
+    const focus = this.focusId ? rounds.find((r) => r.round_id === this.focusId) : undefined;
+    if (focus) {
+      // deep link: everything before stays history; the linked call surfaces live a moment later
+      this.beginAt(Date.parse(focus.created_at) - 1_000 * this.speed, true);
+    } else {
+      // warm start: open on a moment where several calls are mid-countdown, not on an empty reef
+      const warmIdx = Math.min(rounds.length - 1, Math.max(0, Math.floor(rounds.length / 3)));
+      this.beginAt(Date.parse(rounds[warmIdx]!.created_at) + 1_000, true);
+    }
     this.lastReal = performance.now();
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.timer = window.setInterval(() => this.tick(), reduce ? 1_000 : 250);

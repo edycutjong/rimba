@@ -2,7 +2,7 @@
   "name": "rimba",
   "version": "0.1.0",
   "private": true,
-  "description": "RIMBA — a naturalist agent that watches the Sui chain through Tatum's gRPC stream, calls what big wallets do next, and remembers outcomes in Walrus Memory.",
+  "description": "RIMBA \u2014 a naturalist agent that watches the Sui chain through Tatum's gRPC stream, calls what big wallets do next, and remembers outcomes in Walrus Memory.",
   "license": "MIT",
   "type": "module",
   "engines": {
@@ -20,7 +20,8 @@
     "day0": "tsx scripts/day0.ts",
     "test": "vitest run",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "pick-demo": "tsx scripts/pick-demo-round.ts"
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.14.7",

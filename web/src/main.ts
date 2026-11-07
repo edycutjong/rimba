@@ -38,7 +38,10 @@ function renderStatus(s: SourceStatus) {
 }
 
 const sink: Sink = {
-  onCall: (r, instant) => reef.onCall(r, instant),
+  onCall: (r, instant) => {
+    reef.onCall(r, instant);
+    if (deepRound && r.round_id === deepRound) reef.pin(deepRound); // a linked round keeps the card until the visitor lets go
+  },
   onResolution: (r, instant) => reef.onResolution(r, instant),
   onNotes: (n) => {
     Object.assign(store.notes, n);
@@ -84,7 +87,8 @@ route();
 const q = new URLSearchParams(location.search);
 const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
 const liveParam = q.get('live');
-const wantLive = liveParam !== null || (isLocal && q.get('replay') === null);
+const deepRound = q.get('round');
+const wantLive = deepRound === null && (liveParam !== null || (isLocal && q.get('replay') === null));
 
 async function boot() {
   if (wantLive) {
@@ -100,7 +104,7 @@ async function boot() {
       return;
     }
   }
-  await new ReplaySource(sink).start();
+  await new ReplaySource(sink, import.meta.env.BASE_URL, null, { focusId: deepRound, speed: Number(q.get('speed')) || null }).start();
 }
 boot().catch((e) => {
   ticker.textContent = `Could not load data: ${String(e)}`;
