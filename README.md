@@ -24,7 +24,7 @@
 > **Read this first.** RIMBA scores itself, and it only counts a round toward its headline if the checkpoint arrived
 > through **Tatum's Sui gRPC** *and* the recall came from **Walrus Memory**. As of this commit that headline has
 > **0 rounds**: the Tatum API key and the Walrus Memory account are not wired into the logger yet, so every round so far
-> ran on Sui's public fullnode with a local stand-in for memory. Those rows are labelled `DEV DATA` everywhere and are
+> ran on Sui's public fullnode with a local stand-in for memory. Those rows are labelled "Dev data" in the reef page and `DEV DATA` in this README and are
 > never presented as the result. See [Scorecard](#-scorecard-and-what-it-does-not-claim-yet).
 
 ## 📸 See it in Action
@@ -44,7 +44,7 @@ happens next" question can resolve in minutes, straight from the chain.
 
 ### The Solution
 For every large transfer the naturalist writes a **sighting**, turns it into a plain-words **species sentence**
-(deterministic code, no LLM: size bucket, hop count, time of day, new vs. known counterparty, coin), and **recalls**
+(deterministic code, no LLM: size bucket, round or odd shape, number of recipients, time of day, new vs. repeat counterparty, the wallet's recent pace, coin), and **recalls**
 similar field notes from Walrus Memory. It calls *"this wallet moves again within 15 minutes: yes / no"*, or abstains
 when no note is close enough, and records which notes it cited. The stream itself resolves the call minutes later and
 the outcome is written back as a new field note, so the next similar sighting can get a different call. Each round is
@@ -87,13 +87,13 @@ Three methods of `sui.rpc.v2` carry the whole loop:
 | Method | Used for | Code |
 |---|---|---|
 | `SubscriptionService/SubscribeCheckpoints` | the live feed every sighting comes from | [`src/stream/client.ts`](src/stream/client.ts), [`src/stream/source.ts`](src/stream/source.ts) |
-| `LedgerService/GetCheckpoint` | gap backfill so no checkpoint is skipped; re-derives NO outcomes at the deadline | [`src/stream/source.ts`](src/stream/source.ts), [`src/verify.ts`](src/verify.ts) |
-| `LedgerService/GetTransaction` | `pnpm verify` re-derives the sighting and each YES move from the chain | [`src/verify.ts`](src/verify.ts) |
+| `LedgerService/GetCheckpoint` | gap backfill so no checkpoint is skipped; re-derives NO outcomes at the deadline | [`src/stream/source.ts`](src/stream/source.ts), [`scripts/verify.ts`](scripts/verify.ts) |
+| `LedgerService/GetTransaction` | `pnpm verify` re-derives the sighting and each YES move from the chain | [`src/stream/client.ts`](src/stream/client.ts), [`scripts/verify.ts`](scripts/verify.ts) |
 
 **Walrus Memory** (`@mysten-incubation/memwal`, relayer `relayer.memory.walrus.xyz`): `recall` with a semantic + recency
 scoring blend and a `maxDistance` cut-off drives every call ([`src/naturalist.ts`](src/naturalist.ts),
-[`src/memory/memwal.ts`](src/memory/memwal.ts)); `remember` writes each outcome as a field note, under a daily write
-budget, and a species whose behaviour drifts gets a newer superseding note rather than a deletion
+[`src/memory/memwal.ts`](src/memory/memwal.ts)); `remember` writes outcomes as field notes (budget permitting, with a daily write
+budget), and a species whose behaviour drifts gets a newer superseding note rather than a deletion
 ([`src/notes.ts`](src/notes.ts)). The memory sees only public chain data.
 
 Both are behind one `CheckpointSource` / memory-backend interface, which is how the same code runs against the public
@@ -114,30 +114,31 @@ fullnode and a local stand-in before credentials exist; every row records its `n
 | Control | Why it is load-bearing | Test |
 |---|---|---|
 | Predictions are frozen when the call is written | the memory, base-rate and frequency predictions are logged on the same round before any outcome exists | [`test/loop.test.ts`](test/loop.test.ts) |
-| Calls written more than 60 s after their checkpoint are excluded from the score | a late call could have seen the outcome | [`test/score.test.ts`](test/score.test.ts) |
+| Calls written more than 60 s after their checkpoint are excluded from the stream-labelled scorecards and the headline (they stay visible in the all-rows view) | a late call could have seen the outcome | [`test/score.test.ts`](test/score.test.ts) |
 | Rounds resolved through a different stream than they were called on are excluded | mixing sources would blur the headline | [`test/score.test.ts`](test/score.test.ts) |
 | Abstain when no note is within `maxDistance` | an uninformed call is reported as the base rate, not as skill | [`test/naturalist.test.ts`](test/naturalist.test.ts) |
-| Checkpoint gaps void a round instead of resolving it NO | a missing checkpoint is not evidence of silence | [`test/resolver.test.ts`](test/resolver.test.ts), [`test/source.test.ts`](test/source.test.ts) |
+| Checkpoint gaps void a round instead of resolving it NO | a missing checkpoint is not evidence of silence | [`test/resolver.test.ts`](test/resolver.test.ts) |
 
 ## ⛓️ Live Deployment
 
-No wallet needed anywhere: RIMBA only reads the chain and the memory API; it never signs or spends.
+No wallet needed anywhere: RIMBA only reads the chain and the memory API; it never signs or spends on Sui.
 
 - Reef page: <https://rimba-five.vercel.app> (Vercel static, replay of [`web/public/data/snapshot.json`](web/public/data/snapshot.json); every round is in [`web/public/data/rounds.csv`](web/public/data/rounds.csv))
 - Logger: runs continuously on the builder's machine (`pnpm logger`) and resolves each call on the chain's own clock.
 
 ## 🧮 Scorecard and what it does not claim yet
 
-Question: does the sender move again within 15 minutes (any transfer)? Source of truth: [`evidence/score-2026-11-06.md`](evidence/score-2026-11-06.md), regenerated by `pnpm score --write`.
+Question: does the sender move again within 15 minutes (any transfer)? Source of truth: [`evidence/score-2026-11-07.md`](evidence/score-2026-11-07.md), regenerated by `pnpm score --write`.
 
 | Stream × memory | Rounds resolved | Status |
 |---|---|---|
 | Tatum gRPC × Walrus Memory (**headline**) | **0** | credentials not wired yet; no headline claimed |
-| Sui public fullnode × local stand-in (**DEV DATA**) | 204 | development only, never a headline |
+| Sui public fullnode × local stand-in (**DEV DATA**) | 209 | development only, never a headline |
 
-On the dev rows, for never-seen addresses (N = 107) the memory's Brier score is 0.2247 against 0.2401 for the base rate
-(lower is better); across all 204 resolved rounds, 0.2088 against 0.2508 for the base rate and 0.2080 for the
-per-address frequency table. That is a development-stream result with a local memory stand-in. It says the loop
+On the dev rows, for never-seen addresses (N = 109) the memory's Brier score is 0.2208 against 0.2388 for the base rate
+(lower is better); across all 209 resolved rounds, 0.2081 against 0.2506 for the base rate and 0.2099 for the
+per-address frequency table. The live reef and `web/public/data/rounds.csv` are frozen snapshots of this ledger and
+show the same figures as of 7 Nov 2026; the logger keeps running, so later `pnpm score` output will have larger N. That is a development-stream result with a local memory stand-in. It says the loop
 learns on live mainnet traffic. It does not say anything about Walrus Memory or Tatum.
 
 **Limitations, stated plainly**
@@ -145,7 +146,7 @@ learns on live mainnet traffic. It does not say anything about Walrus Memory or 
   addresses, which is why the headline is the never-seen subset.
 - The managed Walrus relayer sees plaintext notes; notes hold only public chain data.
 - The horizon, size thresholds and abstain distances were chosen on development rows before any headline row existed
-  and are frozen ([`config/rimba.json`](config/rimba.json)).
+  and have not been changed since any headline row existed (there are none yet) ([`config/rimba.json`](config/rimba.json)).
 - Small samples: a few hundred rounds separate skill from luck only loosely. Read the N next to every number.
 
 ## 🚀 Getting Started
