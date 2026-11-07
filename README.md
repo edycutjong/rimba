@@ -39,7 +39,7 @@ on the chain's clock, and the field notes the call cited. Click a stamp to read 
 
 ### The Problem
 Big Sui wallets move many times a day. Watchers guess what each will do next, but nobody scores the guess, so neither
-people nor bots learn whose read to trust. Scored predictions elsewhere usually resolve slowly; on Sui a "what
+people nor bots learn whose read to trust. Where predictions are scored at all, resolution is often slow; on Sui a "what
 happens next" question can resolve in minutes, straight from the chain.
 
 ### The Solution
@@ -107,7 +107,7 @@ fullnode and a local stand-in before credentials exist; every row records its `n
 | Static checks | `tsc --noEmit`, ESLint, web `tsc` clean | `pnpm typecheck && pnpm lint` |
 | Invariants I1–I3 | I1 a call is written before its resolution, one resolution per round; I2 an outcome is a pure function of later checkpoints; I3 every cited note predates the call | [`test/loop.test.ts`](test/loop.test.ts), [`test/naturalist.test.ts`](test/naturalist.test.ts), [`test/verify.test.ts`](test/verify.test.ts) |
 | On-chain re-derivation | `pnpm verify` re-derives sampled sightings and outcomes from the chain; exit 0 only if all match | [`evidence/verify-2026-11-06.json`](evidence/verify-2026-11-06.json) |
-| Benchmarks | decode p50 0.012 ms per mainnet checkpoint; checkpoint → call written p50 887 ms (public node) | [`evidence/bench-2026-11-06.md`](evidence/bench-2026-11-06.md) |
+| Benchmarks (6 Nov run, earlier question; the p50s are per-checkpoint and unaffected) | decode p50 0.012 ms per mainnet checkpoint; checkpoint → call written p50 887 ms (public node) | [`evidence/bench-2026-11-06.md`](evidence/bench-2026-11-06.md) |
 
 ### Attacks defeated
 

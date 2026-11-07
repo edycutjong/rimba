@@ -1,9 +1,9 @@
 # Developer-experience report — Tatum Sui gRPC and Walrus Memory
 
-Notes from building RIMBA against both sponsors. Tatum items were observed while building; Walrus Memory items marked (docs) come from its documentation and were not exercised, because no Walrus account was wired in at this commit.
+Notes from building RIMBA against both sponsors. Tatum items were observed against Sui's public fullnode, which serves the same protos, or come from Tatum's documentation (docs); the Tatum gateway itself was not called at this commit. Walrus Memory items marked (docs) come from its documentation and were not exercised, because no Walrus account was wired in at this commit.
 
 ## Tatum Sui gRPC
-- The method names are `sui.rpc.v2.SubscriptionService/SubscribeCheckpoints` and `LedgerService/GetCheckpoint` /
+- (docs) The method names are `sui.rpc.v2.SubscriptionService/SubscribeCheckpoints` and `LedgerService/GetCheckpoint` /
   `GetTransaction`. The `.proto` files are not shipped with the gateway docs; we vendored them from MystenLabs/sui-apis
   (`proto/`).
 - The same protos work unchanged against `fullnode.mainnet.sui.io:443`, which let us build and test the whole
