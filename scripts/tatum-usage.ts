@@ -17,9 +17,11 @@ if (!res.ok) {
   console.error(`usage API HTTP ${res.status}`);
   process.exit(1);
 }
-const days = (await res.json()) as { day: string; usage: number }[];
-const total = days.reduce((s, d) => s + (d.usage ?? 0), 0);
-const snap = { at: new Date().toISOString(), total_credits_month: total, today: days.at(-1) ?? null };
+// shape (observed 2026-11-07): [{ timestamp, period, usage: [{ type, subtype, chain, count, units }] }] — units = credits
+const days = (await res.json()) as { timestamp: number; usage: { type: string; count: number; units: number }[] }[];
+const sum = (k: 'units' | 'count') => days.reduce((s, d) => s + (d.usage ?? []).reduce((t, u) => t + (Number(u[k]) || 0), 0), 0);
+const total = sum('units');
+const snap = { at: new Date().toISOString(), total_credits_month: total, calls_month: sum('count'), today: days.at(-1) ?? null };
 mkdirSync(OUT_DIR, { recursive: true });
 const prev = existsSync(LOG) ? readFileSync(LOG, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l) as typeof snap).at(-1) : undefined;
 appendFileSync(LOG, JSON.stringify(snap) + '\n');
