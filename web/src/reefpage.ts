@@ -41,6 +41,7 @@ export class ReefPage {
   private scoreEl = document.getElementById('score')!;
   private countEl = document.getElementById('reef-count')!;
   private lastCardKey = '';
+  private stamped = new Set<string>();
   private lastLogKey = '';
   private announce = document.getElementById('announce')!;
   private reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -140,7 +141,7 @@ export class ReefPage {
           .map((r) => {
             const v = verdict(r);
             const res = r.resolution!;
-            return `<li><span class="mini-stamp mini-stamp--${v ?? 'none'}">${v === 'right' ? 'RIGHT' : v === 'wrong' ? 'WRONG' : 'NO CALL'}</span> <span class="mono">${catNo(r.n)}</span> <span class="logs">${v === 'abstain' ? `no call, not scored (chain: ${res.outcome === 1 ? 'moved again' : 'did not move'})` : `${esc(callLine(r))} → ${res.outcome === 1 ? 'moved again' : 'did not move'}`}</span> <a class="link-quiet mono" href="${suiscanCheckpoint(res.resolving_checkpoint_seq)}" target="_blank" rel="noopener">#${esc(res.resolving_checkpoint_seq)} ↗</a></li>`;
+            return `<li><span class="mini-stamp mini-stamp--${v ?? 'none'}">${v === 'right' ? 'RIGHT' : v === 'wrong' ? 'WRONG' : 'NO CALL'}</span> <span class="mono">${catNo(r.n)}</span> <span class="logs">${v === 'abstain' ? `no call, scored at the base rate (chain: ${res.outcome === 1 ? 'moved again' : 'did not move'})` : `${esc(callLine(r))} → ${res.outcome === 1 ? 'moved again' : 'did not move'}`}</span> <a class="link-quiet mono" href="${suiscanCheckpoint(res.resolving_checkpoint_seq)}" target="_blank" rel="noopener">#${esc(res.resolving_checkpoint_seq)} ↗</a></li>`;
           })
           .join('')}</ol>`
       : '';
@@ -190,7 +191,10 @@ export class ReefPage {
       const cls = v === 'right' ? 'stamp--right' : v === 'wrong' ? 'stamp--wrong' : 'stamp--none';
       const what = res.outcome === 1 ? 'MOVED AGAIN' : res.reason === 'gap' ? 'VOID' : 'DID NOT MOVE';
       const how = v === 'right' ? 'CALL RIGHT' : v === 'wrong' ? 'CALL WRONG' : 'NO CALL MADE';
-      live = `<div class="stamp ${cls} ${this.reduce ? '' : 'stamp--in'}" role="img" aria-label="Resolved by checkpoint ${esc(res.resolving_checkpoint_seq)}: ${what}, ${how}">
+      // the card re-renders whenever another round resolves; the stamp lands (animates) once per round, not on every re-render
+      const land = !this.reduce && !this.stamped.has(r.round_id);
+      this.stamped.add(r.round_id);
+      live = `<div class="stamp ${cls} ${land ? 'stamp--in' : ''}" role="img" aria-label="Resolved by checkpoint ${esc(res.resolving_checkpoint_seq)}: ${what}, ${how}">
           <span class="stamp-a">RESOLVED · <span class="mono">checkpoint #${esc(res.resolving_checkpoint_seq)}</span></span>
           <span class="stamp-b">${what} · ${how}</span>
         </div>
