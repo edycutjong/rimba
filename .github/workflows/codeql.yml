@@ -6,6 +6,7 @@ on:
   schedule:
     - cron: '23 4 * * 1'
 permissions:
+  actions: read
   contents: read
   security-events: write
 jobs:
@@ -17,3 +18,7 @@ jobs:
         with:
           languages: javascript-typescript
       - uses: github/codeql-action/analyze@v3
+        with:
+          # Code scanning uploads need a public repo (or Advanced Security). While the repo is private the analysis
+          # still runs on every push and fails the job on errors; results upload once the repo is public.
+          upload: ${{ github.event.repository.private == false && 'always' || 'never' }}
