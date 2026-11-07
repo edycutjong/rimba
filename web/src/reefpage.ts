@@ -7,9 +7,12 @@ const HOLD_MS = 9_000;
 
 export function reefHtml(): string {
   return `
+<header class="reef-intro">
+  <h1 id="reef-h" class="reef-title">Each large Sui transfer is a sighting. The naturalist calls what that wallet does next, and <em>the chain resolves the call within 15 minutes.</em></h1>
+  <p class="reef-sub">Question and answer both arrive through Tatum&rsquo;s Sui gRPC stream; resolved outcomes become field notes in Walrus Memory that later calls cite. <a class="link-intro" href="#/how">How it works <span aria-hidden="true">&rarr;</span></a></p>
+</header>
 <div class="reef-grid">
-  <section class="reef-panel" aria-labelledby="reef-h">
-    <h1 id="reef-h" class="sr-only">The reef: live sightings</h1>
+  <section class="reef-panel" aria-label="The reef: live sightings">
     <div class="reef-stage"><canvas id="reef" role="img" aria-label="Reef canvas: each creature is a large Sui transfer the naturalist is watching"></canvas></div>
     <div class="reef-legend" aria-label="Legend">
       <span><i class="dot dot--open"></i>call open</span>

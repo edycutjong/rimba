@@ -29,7 +29,9 @@ main { outline: none; }
 
 /* ------------------------------------------------------------ header */
 .top { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 8px 20px; padding: 14px clamp(14px, 3vw, 32px); border-bottom: 1px solid var(--rule); }
-.brand { font: 400 32px/1 var(--font-display); letter-spacing: .02em; text-decoration: none; color: var(--ink); transition: color var(--t-fast); }
+.brand { display: inline-flex; align-items: center; gap: 10px; font: 400 32px/1 var(--font-display); letter-spacing: .02em; text-decoration: none; color: var(--ink); transition: color var(--t-fast); }
+.brand-mark { display: block; width: 34px; height: 34px; transition: transform var(--t-fast) var(--ease); }
+.brand:hover .brand-mark { transform: rotate(-6deg); }
 .brand:hover { color: var(--before); }
 .ticker { margin: 0; color: var(--muted); font-size: 16px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ticker-note { color: var(--before); }
@@ -44,6 +46,13 @@ main { outline: none; }
 
 /* ------------------------------------------------------------ reef layout */
 .reef-grid { display: grid; grid-template-columns: minmax(0, 62fr) minmax(0, 38fr); gap: 24px; padding: 20px clamp(14px, 3vw, 32px) 40px; align-items: start; }
+.reef-intro { padding: 20px clamp(14px, 3vw, 32px) 0; }
+.reef-title { margin: 0; font: 400 clamp(21px, 2.1vw, 28px)/1.25 var(--font-display); color: var(--ink); max-width: 62ch; }
+.reef-title em { font-style: normal; color: var(--after); }
+.reef-sub { margin: 8px 0 0; font-size: 16px; color: var(--muted); max-width: 86ch; }
+.link-intro { color: var(--ink); white-space: nowrap; text-decoration-color: var(--before); text-underline-offset: 3px; text-decoration-thickness: 2px; transition: color var(--t-fast), text-decoration-color var(--t-fast); }
+.link-intro:hover { color: var(--before); text-decoration-color: var(--before); }
+.link-intro:active { color: var(--after); }
 .reef-panel { position: sticky; top: 12px; }
 .reef-stage { position: relative; height: calc(100vh - 150px); min-height: 420px; max-height: 900px; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; background: #0a2226; }
 .reef-stage canvas { display: block; touch-action: manipulation; }
@@ -226,3 +235,4 @@ input.range:disabled { cursor: not-allowed; opacity: .4; }
 .logs { color: var(--muted); flex: 1 1 200px; min-width: 0; }
 @media (max-width: 1279px) { .stamplog { display: none; } }
 .score-strip .tag { margin-left: auto; }
+@media (max-width: 480px) { .brand-mark { display: none; } }
