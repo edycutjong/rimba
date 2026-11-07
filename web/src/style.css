@@ -49,7 +49,7 @@ main { outline: none; }
 .reef-intro { padding: 20px clamp(14px, 3vw, 32px) 0; }
 .reef-title { margin: 0; font: 400 clamp(21px, 2.1vw, 28px)/1.25 var(--font-display); color: var(--ink); max-width: 62ch; }
 .reef-title em { font-style: normal; color: var(--after); }
-.reef-sub { margin: 8px 0 0; font-size: 16px; color: var(--muted); max-width: 86ch; }
+.reef-sub { margin: 8px 0 0; font-size: 17px; color: #A9BFBA; max-width: 92ch; }
 .link-intro { color: var(--ink); white-space: nowrap; text-decoration-color: var(--before); text-underline-offset: 3px; text-decoration-thickness: 2px; transition: color var(--t-fast), text-decoration-color var(--t-fast); }
 .link-intro:hover { color: var(--before); text-decoration-color: var(--before); }
 .link-intro:active { color: var(--after); }
@@ -236,3 +236,4 @@ input.range:disabled { cursor: not-allowed; opacity: .4; }
 @media (max-width: 1279px) { .stamplog { display: none; } }
 .score-strip .tag { margin-left: auto; }
 @media (max-width: 480px) { .brand-mark { display: none; } }
+@media (max-width: 700px) { .reef-intro { padding-top: 14px; } .reef-title { font-size: 19px; } .reef-sub { display: none; } }

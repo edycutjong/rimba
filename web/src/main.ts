@@ -22,6 +22,10 @@ function renderStatus(s: SourceStatus) {
   ticker.innerHTML = `${verb} ${esc(via)}${s.checkpoint ? ` · checkpoint <span class="mono">#${esc(s.checkpoint)}</span>` : ''}${s.note ? ` · <span class="ticker-note">${esc(s.note)}</span>` : ''}`;
   const dev = s.network_source !== 'tatum' || (s.memory !== null && s.memory !== 'walrus');
   document.getElementById('devpill')!.hidden = !dev;
+  const src = document.getElementById('reef-src');
+  if (src) src.textContent = !(tatum && s.memory === 'walrus')
+    ? `This view is development data: ${tatum ? 'Tatum’s stream' : 'Sui’s public fullnode'} and ${s.memory === 'walrus' ? 'Walrus Memory' : 'a local memory stand-in'}, until both keys are wired.`
+    : 'This view came through Tatum’s stream with Walrus Memory recall.';
   if (s.mode === 'live') {
     badge.textContent = 'LIVE';
     badge.className = 'badge badge--live';
