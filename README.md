@@ -22,11 +22,19 @@
 
 ---
 
+**Track 1 — Markets & Sports Prediction · Best Walrus Memory.** RIMBA is a forecaster for on-chain flow: each call is a
+dated yes/no forecast ("does this wallet move again within 15 minutes?"), frozen before the answer exists, graded by
+the chain and scored by Brier against the base rate and the wallet's own habit.
+
 > **Read this first.** RIMBA scores itself, and it only counts a round toward its headline if the checkpoint arrived
-> through **Tatum's Sui gRPC** *and* the recall came from **Walrus Memory**. As of this commit that headline has
-> **0 rounds**: the Tatum API key and the Walrus Memory account are not wired into the logger yet, so every round so far
-> ran on Sui's public fullnode, with a local stand-in for memory (the first 15 rounds ran with no memory at all). Those rows are labelled "Dev data" in the reef page and `DEV DATA` in this README and are
-> never presented as the result. See [Scorecard](#-scorecard-and-what-it-does-not-claim-yet).
+> through **Tatum's Sui gRPC** *and* the recall came from **Walrus Memory**. At the 7 Nov early freeze (15:32 UTC) that
+> headline had **0 rounds**: every round before it ran on Sui's public fullnode with a local stand-in for memory (the
+> first 15 with no memory at all). At 15:39 UTC the Tatum key went live and the logger switched itself to the Tatum
+> gateway; new rows are tagged `tatum`, and `pnpm verify` through the gateway re-derived 9 of 9 sightings and 9 of 9
+> outcomes of the first Tatum-streamed rounds ([`evidence/verify-tatum-2026-11-07.md`](evidence/verify-tatum-2026-11-07.md)).
+> Memory is still the local stand-in until the Walrus Memory delegate key exists, so the headline is still 0. Stand-in
+> rows are labelled "Dev data" in the reef page and `DEV DATA` in this README and are never presented as the result.
+> See [Scorecard](#-scorecard-and-what-it-does-not-claim-yet).
 
 ## 📸 See it in Action
 
@@ -139,7 +147,7 @@ Question: does the sender move again within 15 minutes (any transfer)? Source of
 
 | Stream × memory | Rounds resolved | Status |
 |---|---|---|
-| Tatum gRPC × Walrus Memory (**headline**) | **0** | credentials not wired yet; no headline claimed |
+| Tatum gRPC × Walrus Memory (**headline**) | **0** | Walrus Memory key not wired yet (Tatum stream live since 7 Nov 15:39 UTC); no headline claimed |
 | Sui public fullnode × local stand-in (**DEV DATA**) | 2,379 | development only, never a headline |
 
 On the dev rows, for never-seen addresses (N = 1,118) the memory's Brier score is 0.1080 against 0.1691 for the base rate
