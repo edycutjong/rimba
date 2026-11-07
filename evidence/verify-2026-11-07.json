@@ -1,0 +1,75 @@
+{
+  "generated_at": "2026-11-07T15:29:36.732Z",
+  "offline": {
+    "rounds": 2598,
+    "resolutions": 2558,
+    "checks": {
+      "unique round_id": {
+        "checked": 2598,
+        "failed": 0
+      },
+      "digest format": {
+        "checked": 2598,
+        "failed": 0
+      },
+      "predictions in [0,1]": {
+        "checked": 2598,
+        "failed": 0
+      },
+      "abstain = base rate": {
+        "checked": 351,
+        "failed": 0
+      },
+      "memory call clamped [0.05,0.95] and consistent": {
+        "checked": 2247,
+        "failed": 0
+      },
+      "I1 resolution has a call": {
+        "checked": 2558,
+        "failed": 0
+      },
+      "I1 one resolution per round": {
+        "checked": 2558,
+        "failed": 0
+      },
+      "I1 resolved after called": {
+        "checked": 2558,
+        "failed": 0
+      },
+      "I2 YES inside window": {
+        "checked": 960,
+        "failed": 0
+      },
+      "I2 NO past deadline": {
+        "checked": 1598,
+        "failed": 0
+      },
+      "I3 cited note written before call (row)": {
+        "checked": 40053,
+        "failed": 0
+      },
+      "I3 cited note exists in notes log, submitted before call": {
+        "checked": 40053,
+        "failed": 0
+      }
+    },
+    "findings": []
+  },
+  "ledger_malformed_lines": {
+    "calls": 0,
+    "resolutions": 0,
+    "notes": 0
+  },
+  "endpoint": {
+    "source": "public-dev",
+    "host": "fullnode.mainnet.sui.io:443"
+  },
+  "sample": {
+    "n": 50,
+    "pool": 2394,
+    "pool_source": "public-dev",
+    "sightings_matched": 50,
+    "outcomes_matched": 50,
+    "failures": []
+  }
+}

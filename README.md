@@ -130,7 +130,7 @@ fullnode and a local stand-in before credentials exist; every row records its `n
 
 No wallet signing anywhere: RIMBA only reads the chain, and its code never submits a Sui transaction. The Walrus Memory SDK authenticates with a delegate key.
 
-- Reef page: <https://rimba-five.vercel.app> (Vercel static, replay of [`web/public/data/snapshot.json`](web/public/data/snapshot.json); every resolved round under the current question is in [`web/public/data/rounds.csv`](web/public/data/rounds.csv): 224 rows, 209 with the local stand-in and 15 with no memory; open rounds are not included)
+- Reef page: <https://rimba-five.vercel.app> (Vercel static, replay of [`web/public/data/snapshot.json`](web/public/data/snapshot.json); every resolved round under the current question is in [`web/public/data/rounds.csv`](web/public/data/rounds.csv): 2,394 rows at the 7 Nov early freeze, 2,379 of them with the local stand-in; open rounds are not included)
 - Logger: runs continuously on the builder's machine (`pnpm logger`) and resolves each call on the chain's own clock.
 
 ## 🧮 Scorecard and what it does not claim yet
@@ -140,12 +140,13 @@ Question: does the sender move again within 15 minutes (any transfer)? Source of
 | Stream × memory | Rounds resolved | Status |
 |---|---|---|
 | Tatum gRPC × Walrus Memory (**headline**) | **0** | credentials not wired yet; no headline claimed |
-| Sui public fullnode × local stand-in (**DEV DATA**) | 209 | development only, never a headline |
+| Sui public fullnode × local stand-in (**DEV DATA**) | 2,379 | development only, never a headline |
 
-On the dev rows, for never-seen addresses (N = 109) the memory's Brier score is 0.2208 against 0.2388 for the base rate
-(lower is better); across all 209 resolved rounds, 0.2081 against 0.2506 for the base rate and 0.2099 for the
-per-address frequency table. The live reef is a frozen snapshot of this ledger and shows the same figures as of 7 Nov 2026 (to reproduce
-them from `rounds.csv`, filter `memory_source=local-dev`: 209 rows; the unfiltered 224 rows give 0.2103 / 0.2501 / 0.2082); the logger keeps running, so later `pnpm score` output will have larger N. That is a development-stream result with a local memory stand-in. It is consistent with the loop
+On the dev rows, for never-seen addresses (N = 1,118) the memory's Brier score is 0.1080 against 0.1691 for the base rate
+(lower is better); across all 2,379 resolved rounds, 0.1417 against 0.2370 for the base rate and 0.1517 for the
+per-address frequency table. The reef is a frozen snapshot of 400 sampled rounds of this ledger, taken at the early freeze
+(7 Nov 2026 22:32 WIB, [`evidence/freeze-2026-11-07.md`](evidence/freeze-2026-11-07.md)); the figures above come from
+`pnpm score` over the full ledger (filter `memory_source=local-dev`). The logger keeps running, so later `pnpm score` output will have larger N. That is a development-stream result with a local memory stand-in. It is consistent with the loop
 learning on live mainnet traffic, nothing more. It does not say anything about Walrus Memory or Tatum.
 
 **Limitations, stated plainly**
