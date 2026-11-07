@@ -1,7 +1,8 @@
 <div align="center">
+  <img src="docs/assets/icon.svg" alt="RIMBA icon: a pencilled field card with a green RESOLVED stamp across its corner" width="144">
   <h1>RIMBA 🪼</h1>
-  <p><em>A naturalist agent that watches the Sui chain through Tatum's gRPC stream, calls what big wallets do next, and remembers every outcome in Walrus Memory.</em></p>
-  <img src="docs/reef.png" alt="RIMBA reef page: sightings as jellyfish, the call card with cited field notes and the never-seen-wallet scorecard" width="100%">
+  <p><em>A naturalist agent that watches the Sui chain through Tatum's gRPC stream, calls what big wallets do next, lets the chain grade its calls, and writes what it learns back to Walrus Memory as field notes.</em></p>
+  <img src="docs/assets/readme-hero-animated.svg" alt='RIMBA — a naturalist agent calls what big Sui wallets do next and the chain resolves the call. An ochre-pencilled field card — "moves again within 15 min: YES, 72%" — stamped green RESOLVED by checkpoint, three cited notes beneath.' width="100%">
 
   <br/>
 
@@ -28,6 +29,12 @@
 > never presented as the result. See [Scorecard](#-scorecard-and-what-it-does-not-claim-yet).
 
 ## 📸 See it in Action
+
+<p align="center"><img src="docs/reef.png" alt="RIMBA reef page: sightings as jellyfish, the call card with cited field notes and the never-seen-wallet scorecard" width="100%"></p>
+
+The animated banner above replays one real logged call (No. 0409: 699.94 SUI, `YES · 72%`, resolved at checkpoint
+342451091, outcome written as note No.0218). It ran on development data (public fullnode + local memory stand-in) and
+illustrates the loop; it is not a scorecard figure.
 
 The [live reef](https://rimba-five.vercel.app) replays a committed snapshot of real Sui mainnet sightings at 10× speed
 (badge `REPLAY`); run the logger and server locally and the same page switches to `LIVE` over server-sent events.

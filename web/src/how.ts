@@ -3,7 +3,7 @@ export function howHtml(): string {
 <div class="doc">
   <p class="eyebrow">How it works</p>
   <h1 class="doc-h">A naturalist, a stream, and a notebook it cannot cheat in</h1>
-  <p class="lede">RIMBA watches Sui mainnet for large transfers, writes down a call about what that wallet does next, and lets the chain mark it. Every outcome becomes a field note in Walrus Memory, so the next call can cite what it learned.</p>
+  <p class="lede">RIMBA watches Sui mainnet for large transfers, writes down a call about what that wallet does next, and lets the chain mark it. Outcomes become field notes in Walrus Memory (up to 400 a day, novel species and corrections first), so the next call can cite what it learned.</p>
 
   <figure class="loopfig">
     <svg viewBox="0 0 880 330" role="img" aria-labelledby="loop-t loop-d" class="loop">
@@ -34,7 +34,7 @@ export function howHtml(): string {
         <dt>Tatum — the eyes and the judge</dt>
         <dd>The gRPC gateway streams every Sui mainnet checkpoint (<span class="mono">sui.rpc.v2.SubscriptionService/SubscribeCheckpoints</span>). The same gateway re-derives outcomes later: <span class="mono">LedgerService/GetCheckpoint</span> and <span class="mono">LedgerService/GetTransaction</span>. The call path contains no model.</dd>
         <dt>Walrus Memory — the notebook</dt>
-        <dd>Every outcome is a note in the <span class="mono">field-notes</span> namespace. <span class="mono">recall</span> returns the nearest notes with distances; <span class="mono">rememberBulk</span> writes new ones; memories are immutable, so a species whose behaviour drifts gets a newer note that supersedes the old one.</dd>
+        <dd>Resolved outcomes are written as notes in the <span class="mono">field-notes</span> namespace, up to 400 a day, novel species and corrections first. <span class="mono">recall</span> returns the nearest notes with distances; <span class="mono">rememberBulk</span> writes new ones; memories are immutable, so a species whose behaviour drifts gets a newer note that supersedes the old one.</dd>
       </dl>
     </section>
     <section class="plate">
