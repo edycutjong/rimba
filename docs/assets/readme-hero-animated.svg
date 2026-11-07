@@ -88,7 +88,7 @@
     </rect>
   </g>
   <text x="50" y="164" class="sans" font-size="21" fill="#F2EAD3">Calls what big Sui wallets do next.</text>
-  <text x="50" y="192" class="sans" font-size="21" fill="#F2EAD3">The chain grades it. Walrus remembers it.</text>
+  <text x="50" y="192" class="sans" font-size="21" fill="#F2EAD3">Graded by the chain. Built on Tatum + Walrus.</text>
   <text x="50" y="238" class="mono metric" font-size="15" font-weight="700" fill="#D4A83A">calls resolved by checkpoint in ≤ 15 min</text>
   <text x="50" y="272" class="mono" font-size="13" fill="#8FAAA4">Tatum Sui gRPC · Walrus Memory · Sui mainnet</text>
 
@@ -109,6 +109,7 @@
     <path d="M632 196q-3 14 0 24M650 194q3 14 0 28M668 196q3 14 0 24" stroke="#D4A83A" stroke-width="3" fill="none" stroke-linecap="round"/>
   </g>
   <text x="650" y="252" class="mono" font-size="11" fill="#8FAAA4" text-anchor="middle">sighting · 699.94 SUI</text>
+  <text x="650" y="268" class="mono" font-size="10" fill="#8FAAA4" text-anchor="middle">logged call · dev row</text>
   <path d="M690 182H764" stroke="#D4A83A" stroke-width="2" stroke-dasharray="3 5"/>
   <!-- beat 2: the sender moves again -->
   <g data-story="beat-2" opacity="0">
