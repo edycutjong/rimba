@@ -6,6 +6,7 @@
  * Hero round: a wallet the naturalist had never seen, a real call (not an abstain) that cites ≥ 3 notes,
  * a memory probability at least 15 points away from the base rate, and a call the chain proved right.
  * Wrong round: a real call the chain proved wrong (never-seen wallet preferred) — shown on camera on purpose.
+ * Abstain round: the distance cut-off left too little evidence, so the call is the base rate (never-seen wallet preferred).
  * Ties break on the larger memory-vs-base gap, then the shorter wait, then round id, so the pick is reproducible.
  * Only rounds inside the snapshot qualify: the reef can deep-link them (`/?round=<id>`).
  */
@@ -34,6 +35,7 @@ interface SnapRound {
   checkpoint_ts: number;
   network_source: string;
   memory_source?: string;
+  abstain_reason?: string;
   resolution: Res | null;
 }
 
@@ -57,6 +59,10 @@ const wrong = [...wrongPool.filter((r) => !r.sender_seen_before), ...wrongPool.f
   (a, b) => Number(a.sender_seen_before) - Number(b.sender_seen_before) || waitS(a) - waitS(b) || order(a, b),
 )[0];
 
+const abstain = snap.rounds
+  .filter((r) => r.call === 'abstain' && r.resolution && r.resolution.outcome !== null)
+  .sort((a, b) => Number(a.sender_seen_before) - Number(b.sender_seen_before) || b.cited_note_ids.length - a.cited_note_ids.length || waitS(a) - waitS(b) || a.round_id.localeCompare(b.round_id))[0];
+
 const show = (label: string, r: SnapRound | undefined) => {
   if (!r) return { label, found: false };
   return {
@@ -67,6 +73,7 @@ const show = (label: string, r: SnapRound | undefined) => {
     species: r.species ?? null,
     first_seen_wallet: !r.sender_seen_before,
     call: r.call,
+    abstain_reason: r.abstain_reason ?? null,
     p_memory: r.p_memory,
     p_base: r.p_base,
     p_freq: r.p_freq,
@@ -84,9 +91,9 @@ const show = (label: string, r: SnapRound | undefined) => {
 
 console.log(
   JSON.stringify(
-    { snapshot: path.replace(ROOT + '/', ''), generated_at: snap.generated_at, candidates: { hero: real.filter((r) => !r.sender_seen_before && gap(r) >= 0.15 && verdict(r) === 'right').length, wrong: wrongPool.length }, hero: show('hero', hero), wrong: show('wrong', wrong) },
+    { snapshot: path.replace(ROOT + '/', ''), generated_at: snap.generated_at, candidates: { hero: real.filter((r) => !r.sender_seen_before && gap(r) >= 0.15 && verdict(r) === 'right').length, wrong: wrongPool.length }, hero: show('hero', hero), wrong: show('wrong', wrong), abstain: show('abstain', abstain) },
     null,
     2,
   ),
 );
-if (!hero || !wrong) process.exitCode = 1;
+if (!hero || !wrong || !abstain) process.exitCode = 1;
