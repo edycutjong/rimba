@@ -24,7 +24,7 @@
 > **Read this first.** RIMBA scores itself, and it only counts a round toward its headline if the checkpoint arrived
 > through **Tatum's Sui gRPC** *and* the recall came from **Walrus Memory**. As of this commit that headline has
 > **0 rounds**: the Tatum API key and the Walrus Memory account are not wired into the logger yet, so every round so far
-> ran on Sui's public fullnode with a local stand-in for memory. Those rows are labelled "Dev data" in the reef page and `DEV DATA` in this README and are
+> ran on Sui's public fullnode, with a local stand-in for memory (the first 15 rounds ran with no memory at all). Those rows are labelled "Dev data" in the reef page and `DEV DATA` in this README and are
 > never presented as the result. See [Scorecard](#-scorecard-and-what-it-does-not-claim-yet).
 
 ## 📸 See it in Action
@@ -39,12 +39,12 @@ on the chain's clock, and the field notes the call cited. Click a stamp to read 
 
 ### The Problem
 Big Sui wallets move many times a day. Watchers guess what each will do next, but nobody scores the guess, so neither
-people nor bots learn whose read to trust. Prediction apps that do keep score take days to resolve; on Sui a "what
+people nor bots learn whose read to trust. Scored predictions elsewhere usually resolve slowly; on Sui a "what
 happens next" question can resolve in minutes, straight from the chain.
 
 ### The Solution
 For every large transfer the naturalist writes a **sighting**, turns it into a plain-words **species sentence**
-(deterministic code, no LLM: size bucket, round or odd shape, number of recipients, time of day, new vs. repeat counterparty, the wallet's recent pace, coin), and **recalls**
+(deterministic code, no LLM: size bucket, round or odd shape, number of recipients, time of day, new vs. repeat counterparty, the wallet's recent pace, how often the wallet was sighted before, coin), and **recalls**
 similar field notes from Walrus Memory. It calls *"this wallet moves again within 15 minutes: yes / no"*, or abstains
 when no note is close enough, and records which notes it cited. The stream itself resolves the call minutes later and
 the outcome is written back as a new field note, so the next similar sighting can get a different call. Each round is
@@ -121,9 +121,9 @@ fullnode and a local stand-in before credentials exist; every row records its `n
 
 ## ⛓️ Live Deployment
 
-No wallet needed anywhere: RIMBA only reads the chain and the memory API; it never signs or spends on Sui.
+No wallet signing anywhere: RIMBA only reads the chain, and its code never submits a Sui transaction. The Walrus Memory SDK authenticates with a delegate key.
 
-- Reef page: <https://rimba-five.vercel.app> (Vercel static, replay of [`web/public/data/snapshot.json`](web/public/data/snapshot.json); every round is in [`web/public/data/rounds.csv`](web/public/data/rounds.csv))
+- Reef page: <https://rimba-five.vercel.app> (Vercel static, replay of [`web/public/data/snapshot.json`](web/public/data/snapshot.json); every resolved round under the current question is in [`web/public/data/rounds.csv`](web/public/data/rounds.csv): 224 rows, 209 with the local stand-in and 15 with no memory; open rounds are not included)
 - Logger: runs continuously on the builder's machine (`pnpm logger`) and resolves each call on the chain's own clock.
 
 ## 🧮 Scorecard and what it does not claim yet
@@ -137,16 +137,18 @@ Question: does the sender move again within 15 minutes (any transfer)? Source of
 
 On the dev rows, for never-seen addresses (N = 109) the memory's Brier score is 0.2208 against 0.2388 for the base rate
 (lower is better); across all 209 resolved rounds, 0.2081 against 0.2506 for the base rate and 0.2099 for the
-per-address frequency table. The live reef and `web/public/data/rounds.csv` are frozen snapshots of this ledger and
-show the same figures as of 7 Nov 2026; the logger keeps running, so later `pnpm score` output will have larger N. That is a development-stream result with a local memory stand-in. It says the loop
-learns on live mainnet traffic. It does not say anything about Walrus Memory or Tatum.
+per-address frequency table. The live reef is a frozen snapshot of this ledger and shows the same figures as of 7 Nov 2026 (to reproduce
+them from `rounds.csv`, filter `memory_source=local-dev`: 209 rows; the unfiltered 224 rows give 0.2103 / 0.2501 / 0.2082); the logger keeps running, so later `pnpm score` output will have larger N. That is a development-stream result with a local memory stand-in. It is consistent with the loop
+learning on live mainnet traffic, nothing more. It does not say anything about Walrus Memory or Tatum.
 
 **Limitations, stated plainly**
 - "Moves again within 15 min" is partly a habit question; the per-address frequency table is a strong opponent on known
   addresses, which is why the headline is the never-seen subset.
-- The managed Walrus relayer sees plaintext notes; notes hold only public chain data.
-- The horizon, size thresholds and abstain distances were chosen on development rows before any headline row existed
-  and have not been changed since any headline row existed (there are none yet) ([`config/rimba.json`](config/rimba.json)).
+- Per the Walrus Memory documentation the managed relayer sees plaintext notes; notes hold only public chain data.
+- The horizon and size thresholds were chosen on development rows before any headline row existed
+  ([`evidence/day0/`](evidence/day0), [`config/rimba.json`](config/rimba.json)). The Walrus abstain distance (0.35) is an
+  initial value set before any Walrus Memory recall had run; it may be recalibrated with `scripts/calibrate.ts`, and any
+  change will be stated here.
 - Small samples: a few hundred rounds separate skill from luck only loosely. Read the N next to every number.
 
 ## 🚀 Getting Started

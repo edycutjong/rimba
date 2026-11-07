@@ -1,12 +1,12 @@
 # Architecture
 
-Regenerated from the code at HEAD. Line counts are `src/` TypeScript.
+Regenerated from the code at HEAD.
 
 ## Data flow
 
 ```mermaid
 flowchart LR
-  T[Tatum Sui gRPC] -->|SubscribeCheckpoints| SRC[stream/source.ts<br/>ordered, gap-free feed]
+  T[Tatum Sui gRPC] -->|SubscribeCheckpoints| SRC[stream/source.ts<br/>ordered feed, gap backfill and gap reporting]
   SRC -->|GetCheckpoint backfill| T
   SRC --> DEC[stream/decode.ts<br/>sightings]
   DEC --> LOOP[loop.ts]
@@ -53,6 +53,6 @@ flowchart LR
 
 ## Source labelling
 
-Every round carries `network_source` (`tatum` or `public-dev`) and a memory backend (`walrus` or `local-dev`). The
+Every round carries `network_source` (`tatum` or `public-dev`) and a memory backend (`walrus`, `local-dev`, or `none` when no memory is configured). The
 scorer builds its headline only from `tatum` × `walrus` rows and prints every other combination under a development
 label.
