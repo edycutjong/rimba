@@ -55,11 +55,16 @@ if (!argv.includes('--offline')) {
     if (!cpCache.has(seq)) cpCache.set(seq, (await getCheckpoint(clients, seq, 'sequence_number,digest,summary.timestamp')).checkpoint);
     return cpCache.get(seq);
   };
+  // a failed call (e.g. the gateway still rate-limiting after retries) is reported as such, never as "tx not found"
+  const callFailed = (e: unknown) => {
+    console.error(`  call failed: ${String((e as Error).message ?? e).slice(0, 160)}`);
+    return { transaction: undefined };
+  };
   for (const c of sample) {
     const r = resById.get(c.round_id)!;
-    const s = checkSighting(c, (await getTransaction(clients, c.tx_digest).catch(() => ({ transaction: undefined }))).transaction);
+    const s = checkSighting(c, (await getTransaction(clients, c.tx_digest).catch(callFailed)).transaction);
     let o: { ok: boolean; detail: string };
-    if (r.outcome === 1) o = checkYes(c, r, (await getTransaction(clients, r.resolving_digest).catch(() => ({ transaction: undefined }))).transaction, cfg.move_rule, thresholdMap(cfg));
+    if (r.outcome === 1) o = checkYes(c, r, (await getTransaction(clients, r.resolving_digest).catch(callFailed)).transaction, cfg.move_rule, thresholdMap(cfg));
     else o = checkNoBoundary(c, r, await cpAt(r.resolving_checkpoint_seq), await cpAt((BigInt(r.resolving_checkpoint_seq) - 1n).toString()));
     if (s.ok) sOk++;
     if (o.ok) oOk++;

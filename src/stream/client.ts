@@ -97,7 +97,27 @@ export function subscribeCheckpoints(c: SuiClients, readMask = CHECKPOINT_READ_M
   return fn({ read_mask: { paths: readMask.split(',') } }, metadataFor(c.endpoint));
 }
 
+/** Retry a call that the gateway rate-limited (gRPC UNAVAILABLE carrying HTTP 429, or RESOURCE_EXHAUSTED).
+ * Tatum's free tier answers bursts of unary calls with 429 (observed 2026-11-07: 4 GetTransaction in ~200 ms → 1 × 429);
+ * without this, verify reported those as "tx not found". Other errors are thrown at once. */
+export async function withRetry<T>(fn: () => Promise<T>, attempts = 5, baseMs = 300, sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))): Promise<T> {
+  for (let i = 0; ; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      const code = (e as { code?: number }).code;
+      const limited = code === grpc.status.RESOURCE_EXHAUSTED || (code === grpc.status.UNAVAILABLE && /429|rate/i.test(String((e as Error).message)));
+      if (!limited || i >= attempts - 1) throw e;
+      await sleep(baseMs * 2 ** i);
+    }
+  }
+}
+
 function unary<T>(client: grpc.Client, method: string, req: unknown, ep: Endpoint, timeoutMs = 15_000): Promise<T> {
+  return withRetry(() => unaryOnce<T>(client, method, req, ep, timeoutMs));
+}
+
+function unaryOnce<T>(client: grpc.Client, method: string, req: unknown, ep: Endpoint, timeoutMs: number): Promise<T> {
   return new Promise((resolve, reject) => {
     const fn = (client as unknown as Record<string, (r: unknown, md: grpc.Metadata, o: grpc.CallOptions, cb: (e: grpc.ServiceError | null, v: T) => void) => void>)[method];
     if (!fn) return reject(new Error(`no method ${method}`));
