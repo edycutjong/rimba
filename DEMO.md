@@ -12,7 +12,7 @@
 
 ```bash
 pnpm install
-pnpm test                 # 117 tests
+pnpm test                 # 118 tests
 pnpm score                # Brier tables from data/live/ (add --write to refresh evidence/)
 pnpm verify --offline     # invariants I1–I3 over the local rounds
 pnpm verify               # re-derive a sample of outcomes from the chain (uses Tatum if a key is configured, else the public fullnode)

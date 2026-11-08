@@ -116,7 +116,7 @@ latches to public at 90 %. A Tatum round opens only if its 15-min horizon fits i
 
 | Measure | Value | Reproduce |
 |---|---|---|
-| Tests | 117 passing, 16 files | `pnpm test` |
+| Tests | 118 passing, 16 files | `pnpm test` |
 | Static checks | `tsc --noEmit`, ESLint, web `tsc` clean | `pnpm typecheck && pnpm lint` |
 | Invariants I1–I3 | I1 a call is written before its resolution, one resolution per round; I2 an outcome is a pure function of later checkpoints; I3 every cited note predates the call | [`test/loop.test.ts`](test/loop.test.ts), [`test/naturalist.test.ts`](test/naturalist.test.ts), [`test/verify.test.ts`](test/verify.test.ts) |
 | On-chain re-derivation | `pnpm verify` re-derives sampled sightings and outcomes from the chain; exit 0 only if all match | [`evidence/verify-2026-11-06.json`](evidence/verify-2026-11-06.json) |
@@ -184,7 +184,7 @@ Credentials are read from `~/.config/tatum/tatum.env` (`TATUM_API_KEY`) and `~/.
 ## 🧪 Testing & CI
 
 ```bash
-pnpm test && pnpm typecheck && pnpm lint   # 117 tests, type and lint clean
+pnpm test && pnpm typecheck && pnpm lint   # 118 tests, type and lint clean
 pnpm score --write                         # Brier scorecard → evidence/
 pnpm verify                                # re-derive sampled outcomes from the chain
 pnpm bench                                 # p50 / p95 numbers
