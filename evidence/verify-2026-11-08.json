@@ -1,0 +1,79 @@
+{
+  "generated_at": "2026-11-08T01:00:12.613Z",
+  "offline": {
+    "rounds": 3247,
+    "resolutions": 3228,
+    "checks": {
+      "unique round_id": {
+        "checked": 3247,
+        "failed": 0
+      },
+      "digest format": {
+        "checked": 3247,
+        "failed": 0
+      },
+      "predictions in [0,1]": {
+        "checked": 3247,
+        "failed": 0
+      },
+      "abstain = base rate": {
+        "checked": 374,
+        "failed": 0
+      },
+      "memory call clamped [0.05,0.95] and consistent": {
+        "checked": 2873,
+        "failed": 0
+      },
+      "I1 resolution has a call": {
+        "checked": 3228,
+        "failed": 0
+      },
+      "I1 one resolution per round": {
+        "checked": 3228,
+        "failed": 0
+      },
+      "I1 resolved after called": {
+        "checked": 3228,
+        "failed": 0
+      },
+      "I2 YES inside window": {
+        "checked": 1187,
+        "failed": 0
+      },
+      "I2 NO past deadline": {
+        "checked": 2022,
+        "failed": 0
+      },
+      "void only on a checkpoint gap": {
+        "checked": 19,
+        "failed": 0
+      },
+      "I3 cited note written before call (row)": {
+        "checked": 51082,
+        "failed": 0
+      },
+      "I3 cited note exists in notes log, submitted before call": {
+        "checked": 51082,
+        "failed": 0
+      }
+    },
+    "findings": []
+  },
+  "ledger_malformed_lines": {
+    "calls": 0,
+    "resolutions": 0,
+    "notes": 0
+  },
+  "endpoint": {
+    "source": "tatum",
+    "host": "sui-mainnet-grpc.gateway.tatum.io:443"
+  },
+  "sample": {
+    "n": 50,
+    "pool": 578,
+    "pool_source": "tatum",
+    "sightings_matched": 50,
+    "outcomes_matched": 50,
+    "failures": []
+  }
+}
