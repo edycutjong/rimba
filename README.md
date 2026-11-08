@@ -28,8 +28,8 @@ the chain and scored by Brier against the base rate and the wallet's own habit.
 
 > **Read this first.** RIMBA scores itself, and it only counts a round toward its headline if the checkpoint arrived
 > through **Tatum's Sui gRPC** *and* the recall came from **Walrus Memory**. At the 8 Nov re-freeze (01:02 UTC) that
-> headline still had **0 rounds**: every round before it ran on Sui's public fullnode with a local stand-in for memory (the
-> first 15 with no memory at all). At 15:39 UTC the Tatum key went live and the logger switched itself to the Tatum
+> headline still had **0 rounds**: every round ran with a local stand-in for memory (the first 15 with none at all), either on Sui's public
+> fullnode (2,467 rows) or on Tatum's gateway (578 rows). On 7 Nov at 15:39 UTC the Tatum key went live and the logger switched itself to the Tatum
 > gateway; new rows are tagged `tatum`, and `pnpm verify` through the gateway re-derived 9 of 9 sightings and 9 of 9
 > outcomes of the first Tatum-streamed rounds ([`evidence/verify-tatum-2026-11-07.md`](evidence/verify-tatum-2026-11-07.md)).
 > Memory is still the local stand-in until the Walrus Memory delegate key exists, so the headline is still 0. Stand-in
@@ -148,7 +148,7 @@ latches to public at 90 %. A Tatum round opens only if its 15-min horizon fits i
 
 No wallet signing anywhere: RIMBA only reads the chain, and its code never submits a Sui transaction. The Walrus Memory SDK authenticates with a delegate key.
 
-- Reef page: <https://rimba.edycu.dev> (Vercel static, replay of [`web/public/data/snapshot.json`](web/public/data/snapshot.json); every resolved round under the current question is in [`web/public/data/rounds.csv`](web/public/data/rounds.csv): 3,045 rows at the 8 Nov re-freeze, all with the local stand-in; open rounds are not included)
+- Reef page: <https://rimba.edycu.dev> (Vercel static, replay of [`web/public/data/snapshot.json`](web/public/data/snapshot.json); every resolved round under the current question is in [`web/public/data/rounds.csv`](web/public/data/rounds.csv): 3,045 rows at the 8 Nov re-freeze: 3,030 with the local stand-in, 15 with no memory; open rounds are not included)
 - Logger: runs continuously on the builder's machine (`pnpm logger`) and resolves each call on the chain's own clock.
 
 ## 🧮 Scorecard and what it does not claim yet
@@ -157,7 +157,7 @@ Question: does the sender move again within 15 minutes (any transfer)? Source of
 
 | Stream × memory | Rounds resolved | Status |
 |---|---|---|
-| Tatum gRPC × Walrus Memory (**headline**) | **0** | Walrus Memory key not wired yet (Tatum stream live since 7 Nov 15:39 UTC); no headline claimed |
+| Tatum gRPC × Walrus Memory (**headline**) | **0** | Walrus Memory key not wired yet (Tatum stream live 7 Nov 15:39–19:05 UTC and again since 8 Nov 00:23 UTC, with a 5 h 18 min free-tier outage in between); no headline claimed |
 | Tatum stream × local stand-in (**DEV MEMORY**) | 570 | Tatum rows, but memory is the local stand-in; not a headline |
 | Sui public fullnode × local stand-in (**DEV DATA**) | 2,408 | development only, never a headline |
 
