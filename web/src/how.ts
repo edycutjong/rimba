@@ -17,7 +17,7 @@ export function howHtml(): string {
 <div class="doc">
   <p class="eyebrow">Plate III · Field method</p>
   <h1 class="doc-h">A naturalist, a stream, and a notebook it cannot cheat in</h1>
-  <p class="lede">RIMBA watches Sui mainnet for large transfers, writes down a call about what that wallet does next, and lets the chain mark it. Outcomes become field notes in Walrus Memory (up to 400 a day, novel species and corrections first), so the next call can cite what it learned. Until the Walrus Memory key is wired, a local stand-in keeps those notes, and every row says which.</p>
+  <p class="lede">RIMBA watches Sui mainnet for large transfers, writes down a call about what that wallet does next, and lets the chain mark it. Outcomes become field notes in Walrus Memory (up to 400 a day, novel species and corrections first), so the next call can cite what it learned. When a local stand-in kept those notes instead, the row says so (<i>local-dev</i>).</p>
 
   <figure class="loopfig">
     <svg viewBox="0 0 880 330" role="img" aria-labelledby="loop-t loop-d" class="loop">
@@ -56,8 +56,8 @@ export function howHtml(): string {
       <dl class="calls">
         <dt>Tatum — the eyes and the judge <span class="status status--on">primary stream</span></dt>
         <dd>The gRPC gateway streams every Sui mainnet checkpoint (<span class="mono">sui.rpc.v2.<wbr>SubscriptionService/<wbr>SubscribeCheckpoints</span>). The same gateway re-derives outcomes later: <span class="mono">LedgerService/<wbr>GetCheckpoint</span> and <span class="mono">LedgerService/<wbr>GetTransaction</span>. Sui’s public fullnode is the fallback, and its rows are labelled. The call path contains no model.</dd>
-        <dt>Walrus Memory — the notebook <span class="status status--pending">key pending</span></dt>
-        <dd>Resolved outcomes are written as notes in the <span class="mono">field-notes</span> namespace, up to 400 a day, novel species and corrections first. <span class="mono">recall</span> returns the nearest notes with distances; <span class="mono">rememberBulk</span> writes new ones; memories are immutable, so a species whose behaviour drifts gets a newer note that supersedes the old one. A local stand-in answers until the delegate key is wired.</dd>
+        <dt>Walrus Memory — the notebook</dt>
+        <dd>Resolved outcomes are written as notes in the <span class="mono">field-notes</span> namespace, up to 400 a day, novel species and corrections first. <span class="mono">recall</span> returns the nearest notes with distances; <span class="mono">rememberBulk</span> writes new ones; memories are immutable, so a species whose behaviour drifts gets a newer note that supersedes the old one. Rows written with the local stand-in instead are labelled <i>local-dev</i>.</dd>
       </dl>
     </section>
     <section class="plate">
@@ -81,11 +81,11 @@ export function howHtml(): string {
     <p class="muted">Every scorecard number on the reef links to <span class="mono">rounds.csv</span>; each row there names its checkpoint and transaction digest.</p>
   </section>
 
-  <section class="plate plate--honest">
+  <section class="plate plate--honest" id="how-honest" tabindex="-1">
     <h2>What this page is, honestly</h2>
     <ul class="ticks">
       <li>The deployed page <b>replays</b> a frozen snapshot at 10× and says so in the badge. The live mode needs the logger running on a machine you control.</li>
-      <li>Rows labelled <i>public-dev</i> came from Sui’s public fullnode: before the Tatum key existed, or when the credit governor or an HTTP 402 falls back to it. Rows labelled <i>local-dev</i> used a local memory stand-in, because the Walrus Memory delegate key is not wired yet. Both are shown, never counted as the headline.</li>
+      <li>Rows labelled <i>public-dev</i> came from Sui’s public fullnode: before the Tatum key existed, or when the credit governor or an HTTP 402 falls back to it. Rows labelled <i>local-dev</i> used a local memory stand-in instead of Walrus Memory. Both are shown, never counted as the headline.</li>
       <li>Walrus Memory’s relayer sees plaintext. Notes contain only public chain facts: bucketed traits, an outcome, a checkpoint number.</li>
       <li>“Moves again” is a habit question, and the frequency table is a strong opponent on wallets it has seen. That is why the headline is on wallets it has not.</li>
     </ul>

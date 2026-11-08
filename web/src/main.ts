@@ -18,15 +18,14 @@ const reef = new ReefPage();
 const notebook = new Notebook(document.getElementById('p-notebook')!);
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/** what this view's rows came through, said exactly: which half of the headline is missing, and why */
+/** what this view's rows came through, read from the rows themselves (never from what is configured now) */
 function sourceSentence(s: SourceStatus): string {
   const tatum = s.network_source === 'tatum';
   const walrus = s.memory === 'walrus';
   if (tatum && walrus) return 'This view came through Tatum’s stream with Walrus Memory recall.';
   const stream = tatum ? 'Tatum’s stream' : 'Sui’s public fullnode';
   const memory = walrus ? 'Walrus Memory' : s.memory === 'none' ? 'no memory at all' : 'a local memory stand-in';
-  const why = tatum ? ', until the Walrus Memory key is wired' : walrus ? ', recorded while the stream was on the fallback' : ' — never the headline';
-  return `This view is development data: ${stream} with ${memory}${why}.`;
+  return `This view is development data: ${stream} with ${memory} — never the headline.`;
 }
 
 function renderStatus(s: SourceStatus) {
@@ -46,7 +45,6 @@ function renderStatus(s: SourceStatus) {
   const rec = document.getElementById('colo-rec')!;
   const recText = s.mode === 'live' ? 'Streaming live from the logger on this machine' : s.generated_at ? `This replay was recorded ${fmtWhen(s.generated_at)}` : rec.textContent;
   if (rec.textContent !== recText) rec.textContent = recText;
-  if (s.memory === 'walrus') document.getElementById('colo-walrus')!.textContent = 'Walrus Memory — the field notes the next call cites';
   for (const id of ['fl-rounds-a', 'colo-csv']) document.getElementById(id)?.setAttribute('href', s.csv_url);
   if (s.mode === 'live') {
     badge.textContent = 'LIVE';
@@ -120,7 +118,7 @@ const routes = ['reef', 'notebook', 'how'] as const;
 function route() {
   // in-page anchors (the skip link's #main) are not routes: leave the current page alone
   if (location.hash && !location.hash.startsWith('#/')) return;
-  const h = location.hash.replace(/^#\/?/, '') || 'reef';
+  const [h = '', part] = location.hash.replace(/^#\/?/, '').split('/');
   const name = (routes as readonly string[]).includes(h) ? h : 'reef';
   document.documentElement.dataset.route = name;
   for (const r of routes) document.getElementById(`p-${r}`)!.hidden = r !== name;
@@ -133,7 +131,12 @@ function route() {
   if (name === 'notebook') notebook.render();
   const titles = { reef: 'Reef', notebook: 'Notebook', how: 'How it works' } as const;
   document.title = `${titles[name as keyof typeof titles]} — RIMBA`;
-  window.scrollTo({ top: 0 });
+  // #/how/honest (the DEV DATA pill) opens the explainer at its honesty section
+  const target = name === 'how' && part === 'honest' ? document.getElementById('how-honest') : null;
+  if (target) {
+    target.scrollIntoView({ block: 'start' });
+    target.focus({ preventScroll: true });
+  } else window.scrollTo({ top: 0 });
 }
 window.addEventListener('hashchange', route);
 route();

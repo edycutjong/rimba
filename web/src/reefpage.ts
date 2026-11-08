@@ -377,7 +377,7 @@ export class ReefPage {
       : '<span class="tag tag--dev">Development data · public fullnode × local-dev memory</span>';
     const note = hasHead
       ? ''
-      : `<p class="devnote">Headline rows (Tatum stream <i>and</i> Walrus Memory) start when ${store.status?.network_source === 'tatum' ? 'the Walrus Memory key is wired; the Tatum stream already is' : 'both keys are in'}. ${s.headline.counts.calls ? '' : 'Until then these numbers are development numbers and never the headline.'}</p>`;
+      : `<p class="devnote">Headline rows need Tatum’s stream <i>and</i> Walrus Memory on the same round, and none here has resolved yet: these are development numbers, never the headline.</p>`;
     const { dmax, maxD, whatif } = this.judgeState();
     const hist = store.history;
     const nv = card.never_seen;

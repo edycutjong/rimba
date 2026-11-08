@@ -52,7 +52,11 @@ html:not(.js) .reef-grid, html:not(.js) .fieldlog { display: none; }
 .badge { font: 500 13px/1 var(--font-data); letter-spacing: .08em; padding: 7px 10px; border: 1px solid var(--rule); border-radius: 3px; color: var(--muted); white-space: nowrap; min-width: 5.5em; text-align: center; }
 .badge--live { color: var(--bg); background: var(--after); border-color: var(--after); }
 .badge--replay { color: var(--bg); background: var(--before); border-color: var(--before); }
-.pill-dev { font: 600 12px/1 var(--font-body); letter-spacing: .05em; text-transform: uppercase; padding: 7px 9px; border: 1px solid var(--before); color: var(--before); border-radius: 3px; white-space: nowrap; }
+.pill-dev { font: 600 12px/1 var(--font-body); letter-spacing: .05em; text-transform: uppercase; padding: 7px 9px; border: 1px solid var(--before); color: var(--before); border-radius: 3px; white-space: nowrap; text-decoration: none; transition: background var(--t-fast), color var(--t-fast), transform var(--t-fast); }
+a.pill-dev:hover { background: var(--before); color: var(--bg); transform: translateY(-1px); }
+a.pill-dev:active { transform: translateY(1px) scale(.97); }
+.plate--honest:focus { outline: none; }
+.plate--honest:focus-visible { outline: 2px solid var(--before); outline-offset: 3px; }
 .nav { display: flex; gap: 4px; align-items: center; }
 .nav a { text-decoration: none; padding: 8px 12px; border-radius: 4px; color: var(--muted); border: 1px solid transparent; transition: color var(--t-fast), background var(--t-fast), border-color var(--t-fast), transform var(--t-fast); }
 .nav a:hover { color: var(--ink); background: var(--panel); border-color: var(--rule); transform: translateY(-1px); }
@@ -305,7 +309,6 @@ input.range:disabled { cursor: not-allowed; opacity: .4; }
 .calls dt { font-weight: 700; margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; } .calls dt:first-child { margin-top: 0; } .calls dd { margin: 4px 0 0; color: var(--ink); }
 .status { display: inline-block; font: 600 12px/1.2 var(--font-body); letter-spacing: .05em; text-transform: uppercase; padding: 3px 7px; border-radius: 3px; }
 .status--on { background: var(--after); color: var(--bg); }
-.status--pending { border: 1px solid var(--before); color: var(--before); }
 .ticks { margin: 0; padding-left: 22px; } .ticks li { margin: 0 0 10px; }
 .code { position: relative; background: var(--deep); border: 1px solid var(--rule); border-radius: 4px; padding: 14px 16px; font: 400 15px/1.55 var(--font-data); overflow-x: auto; max-width: 100%; margin: 0 0 14px; }
 /* commands and their comments share two columns across rows, so every # lines up */
