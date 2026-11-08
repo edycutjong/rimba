@@ -69,20 +69,7 @@ The score is a Brier score (mean of `(p − outcome)²`; lower is better; always
 
 ## 🏗️ Architecture & Tech Stack
 
-```mermaid
-flowchart LR
-  T[Tatum Sui gRPC<br/>SubscribeCheckpoints] --> D[stream/decode.ts<br/>balance changes → sightings]
-  D --> S[taxon.ts<br/>species sentence]
-  S --> N[naturalist.ts<br/>recall → distance-weighted vote]
-  W[(Walrus Memory<br/>namespace field-notes)] --> N
-  N --> R[rounds<br/>memory / base / frequency<br/>frozen at call time]
-  D --> V[resolver.ts<br/>moves again within H?]
-  V --> R
-  V --> M[notes.ts<br/>remember, budget, supersede]
-  M --> W
-  R --> SC[score.ts · verify.ts]
-  R --> SSE[server.ts /events] --> UI[web/ reef page]
-```
+<p align="center"><img src="docs/assets/architecture.png" alt="RIMBA architecture: Sui mainnet checkpoints stream from Tatum gRPC (primary; the public Sui fullnode is the fallback, picked by a credit governor) through source.ts, decode.ts and taxon.ts; the naturalist recalls field notes from Walrus Memory and calls whether the wallet moves again within 15 minutes; the resolver grades the call on later checkpoints and notes.ts writes the outcome back to memory, with a local-dev stand-in answering until Walrus credentials are set; an append-only log feeds pnpm verify (re-derives rounds on-chain through Tatum), the Brier scorecard, the logger server (SSE) and the snapshot that the reef page at rimba.edycu.dev replays." width="100%"></p>
 
 | Layer | Choice |
 |---|---|
