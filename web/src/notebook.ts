@@ -77,7 +77,7 @@ export class Notebook {
     const call = r.call === 'abstain' ? `abstained (base ${pct(r.p_base)})` : `${r.call.toUpperCase()} ${pct(r.call === 'yes' ? r.p_memory : 1 - r.p_memory)}`;
     return `<tr>
       <td data-l="No."><span class="mono">${catNo(r.n).replace('No. ', '')}</span></td>
-      <td data-l="Sighting"><span class="nb-species">${esc(r.species ?? '—')}</span><br/><span class="mono small">${esc(fmtAmount(r))} · ${coinOf(r.coin_type)} · ${r.sender_seen_before ? 'returning' : 'first-seen'} · <span class="nw">${esc(short(r.sender, 6, 4))}</span></span></td>
+      <td data-l="Sighting"><span class="nb-species">${esc(r.species ?? '—')}</span><br/><span class="mono small">${esc(fmtAmount(r))} · ${coinOf(r.coin_type)} · ${r.sender_seen_before ? 'returning' : 'first-seen'} · <span class="nw">${esc(short(r.sender, 6, 4))}</span> · <span class="nw nb-src" title="network_source × memory_source, as in rounds.csv">${esc(r.network_source)} × ${esc(r.memory_source ?? 'none')}</span></span></td>
       <td data-l="Call">${esc(call)}</td>
       <td data-l="Chain's answer" class="nb-ans"><span class="mini-stamp mini-stamp--${v ?? 'none'}">${v === 'right' ? 'RIGHT' : v === 'wrong' ? 'WRONG' : 'NO CALL'}</span>${esc(ans)}</td>
       <td data-l="Notes cited">${r.cited_note_ids.length ? r.cited_note_ids.slice(0, 4).map((id) => `<span class="mono chipid">${esc(id.replace('No.', ''))}</span>`).join(' ') + (r.cited_note_ids.length > 4 ? ` <span class="muted">+${r.cited_note_ids.length - 4}</span>` : '') : '<span class="muted">none — abstained</span>'}</td>
