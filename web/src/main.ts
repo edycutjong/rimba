@@ -1,31 +1,53 @@
 import './style.css';
-import { howHtml } from './how';
+import { howHtml, wireHow } from './how';
 import { Notebook } from './notebook';
-import { ReefPage, reefHtml } from './reefpage';
+import { ReefPage } from './reefpage';
 import { LiveSource, ReplaySource } from './sources';
 import { store } from './state';
-import type { Sink, SourceStatus } from './types';
-import { esc, snapshotPath } from './fmt';
+import type { ScoreSet, Sink, SourceStatus } from './types';
+import { esc, fmtN, fmtWhen, snapshotPath } from './fmt';
 
+// the reef (intro and grid) is static HTML, painted before any script runs; the notebook and the explainer are added here
 const main = document.getElementById('main')!;
-main.innerHTML = `<section id="p-reef" data-page="reef">${reefHtml()}</section><section id="p-notebook" data-page="notebook" hidden></section><section id="p-how" data-page="how" hidden>${howHtml()}</section>`;
+main.insertAdjacentHTML('beforeend', `<section id="p-notebook" data-page="notebook" hidden></section><section id="p-how" data-page="how" hidden>${howHtml()}</section>`);
+wireHow(document.getElementById('p-how')!);
 
 const ticker = document.getElementById('ticker')!;
 const badge = document.getElementById('badge')!;
 const reef = new ReefPage();
 const notebook = new Notebook(document.getElementById('p-notebook')!);
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/** what this view's rows came through, said exactly: which half of the headline is missing, and why */
+function sourceSentence(s: SourceStatus): string {
+  const tatum = s.network_source === 'tatum';
+  const walrus = s.memory === 'walrus';
+  if (tatum && walrus) return 'This view came through Tatum’s stream with Walrus Memory recall.';
+  const stream = tatum ? 'Tatum’s stream' : 'Sui’s public fullnode';
+  const memory = walrus ? 'Walrus Memory' : s.memory === 'none' ? 'no memory at all' : 'a local memory stand-in';
+  const why = tatum ? ', until the Walrus Memory key is wired' : walrus ? ', recorded while the stream was on the fallback' : ' — never the headline';
+  return `This view is development data: ${stream} with ${memory}${why}.`;
+}
 
 function renderStatus(s: SourceStatus) {
   const tatum = s.network_source === 'tatum';
   const via = tatum ? 'Sui mainnet via Tatum gRPC' : 'Sui mainnet, public fullnode';
   const verb = s.mode === 'live' ? 'Live from' : 'Replay of';
   ticker.innerHTML = `${verb} ${esc(via)}${s.checkpoint ? ` · checkpoint <span class="mono">#${esc(s.checkpoint)}</span>` : ''}${s.note ? ` · <span class="ticker-note">${esc(s.note)}</span>` : ''}`;
+  ticker.className = `ticker ${s.mode === 'live' ? 'is-live' : 'is-replay'}`;
   const dev = s.network_source !== 'tatum' || (s.memory !== null && s.memory !== 'walrus');
   document.getElementById('devpill')!.hidden = !dev;
   const src = document.getElementById('reef-src');
-  if (src) src.textContent = !(tatum && s.memory === 'walrus')
-    ? `This view is development data: ${tatum ? 'Tatum’s stream' : 'Sui’s public fullnode'} and ${s.memory === 'walrus' ? 'Walrus Memory' : 'a local memory stand-in'}, until both keys are wired.`
-    : 'This view came through Tatum’s stream with Walrus Memory recall.';
+  const line = s.network_source === null ? null : sourceSentence(s); // unknown until the first row arrives: keep the static sentence
+  if (src && line && src.textContent !== line) src.textContent = line;
+  const when = document.getElementById('fl-when')!;
+  const whenText = s.mode === 'live' ? 'live from the logger' : s.generated_at ? `${archived ? 'archived ' : ''}snapshot of ${fmtWhen(s.generated_at)}` : '';
+  if (when.textContent !== whenText) when.textContent = whenText;
+  const rec = document.getElementById('colo-rec')!;
+  const recText = s.mode === 'live' ? 'Streaming live from the logger on this machine' : s.generated_at ? `This replay was recorded ${fmtWhen(s.generated_at)}` : rec.textContent;
+  if (rec.textContent !== recText) rec.textContent = recText;
+  if (s.memory === 'walrus') document.getElementById('colo-walrus')!.textContent = 'Walrus Memory — the field notes the next call cites';
+  for (const id of ['fl-rounds-a', 'colo-csv']) document.getElementById(id)?.setAttribute('href', s.csv_url);
   if (s.mode === 'live') {
     badge.textContent = 'LIVE';
     badge.className = 'badge badge--live';
@@ -35,6 +57,31 @@ function renderStatus(s: SourceStatus) {
     badge.className = 'badge badge--replay';
     badge.title = `${archived ? `Archived snapshot ${archived}, recorded` : 'Recorded'} ${s.generated_at ?? ''} — played back at ${s.speed ?? 10}× speed`;
   }
+}
+
+// ---------------------------------------------------------------- field log (receipts)
+let counted = false;
+function countUp(el: HTMLElement, to: number, ms = 1_100) {
+  if (reduceMotion || to < 20) {
+    el.textContent = fmtN(to);
+    return;
+  }
+  const t0 = performance.now();
+  const step = (t: number) => {
+    const k = Math.min(1, (t - t0) / ms);
+    el.textContent = fmtN(Math.round(to * (1 - (1 - k) ** 3)));
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+function renderFieldLog(s: ScoreSet) {
+  const rounds = document.getElementById('fl-rounds')!;
+  const head = document.getElementById('fl-head')!;
+  const resolved = s.all_rows.counts.resolved;
+  if (!counted) countUp(rounds, resolved);
+  else rounds.textContent = fmtN(resolved);
+  head.textContent = fmtN(s.headline.counts.resolved);
+  counted = true;
 }
 
 const sink: Sink = {
@@ -50,10 +97,14 @@ const sink: Sink = {
   onScore: (s) => {
     store.score = s;
     reef.renderScore();
+    renderFieldLog(s);
   },
   onStatus: (s) => {
+    const first = !store.status || store.status.mode !== s.mode;
     store.status = s;
     renderStatus(s);
+    // the notebook names its rows ("in this replay", rounds.csv total, replay links) from the status: draw it again once known
+    if (first && !document.getElementById('p-notebook')!.hidden) notebook.render();
   },
   onHistory: (rs) => {
     store.history = rs;
@@ -66,10 +117,13 @@ const sink: Sink = {
 // ---------------------------------------------------------------- routing
 const routes = ['reef', 'notebook', 'how'] as const;
 function route() {
+  // in-page anchors (the skip link's #main) are not routes: leave the current page alone
+  if (location.hash && !location.hash.startsWith('#/')) return;
   const h = location.hash.replace(/^#\/?/, '') || 'reef';
   const name = (routes as readonly string[]).includes(h) ? h : 'reef';
+  document.documentElement.dataset.route = name;
   for (const r of routes) document.getElementById(`p-${r}`)!.hidden = r !== name;
-  document.querySelectorAll<HTMLAnchorElement>('.nav a').forEach((a) => {
+  document.querySelectorAll<HTMLAnchorElement>('.nav a[data-route]').forEach((a) => {
     const on = a.dataset.route === name;
     a.classList.toggle('is-on', on);
     if (on) a.setAttribute('aria-current', 'page');
@@ -108,8 +162,11 @@ async function boot() {
   }
   await new ReplaySource(sink, import.meta.env.BASE_URL, null, { focusId: deepRound, speed: Number(q.get('speed')) || null, snapshot: snapPath }).start();
 }
-boot().catch((e) => {
-  ticker.textContent = `Could not load data: ${String(e)}`;
-  badge.textContent = 'OFFLINE';
-});
+boot()
+  .then(() => reef.tick()) // one render after the history batch
+  .catch((e) => {
+    ticker.textContent = `Could not load data: ${String(e)}`;
+    badge.textContent = 'OFFLINE';
+    reef.fail(`Could not load the recording (${String(e)})`);
+  });
 setInterval(() => reef.tick(), 250);

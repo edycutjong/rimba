@@ -1,35 +1,18 @@
-import { ago, b4, callLine, catNo, coinOf, esc, fmtAmount, mmss, noteVote, pct, short, suiscanCheckpoint, suiscanTx, verdict } from './fmt';
+import { ago, b4, callLine, catNo, coinOf, esc, fmtAmount, fmtN, mmss, noteParts, noteVote, pct, short, suiscanCheckpoint, suiscanTx, traitDiff, verdict } from './fmt';
 import { ReefCanvas } from './reef';
 import { brier, cumulative, movedWithin, revote, store } from './state';
 import type { Cell, Round, Scorecard } from './types';
 
 const HOLD_MS = 9_000;
 
-export function reefHtml(): string {
-  return `
-<header class="reef-intro">
-  <h1 id="reef-h" class="reef-title">Each large Sui transfer is a sighting. The naturalist calls what that wallet does next; <em>the chain resolves the call within 15 minutes.</em></h1>
-  <p class="reef-sub">Built on Tatum&rsquo;s Sui gRPC stream (question and answer) and Walrus Memory (field notes the next call cites). <span id="reef-src">This view is development data: Sui&rsquo;s public fullnode and a local memory stand-in, until the keys are wired.</span> <a class="link-intro" href="#/how">How it works <span aria-hidden="true">&rarr;</span></a></p>
-</header>
-<div class="reef-grid">
-  <section class="reef-panel" aria-label="The reef: live sightings">
-    <div class="reef-stage"><canvas id="reef" role="img" aria-label="Reef canvas: each creature is a large Sui transfer the naturalist is watching"></canvas></div>
-    <div class="reef-legend" aria-label="Legend">
-      <span><i class="dot dot--open"></i>call open</span>
-      <span><i class="dot dot--right"></i>call right</span>
-      <span><i class="dot dot--wrong"></i>call wrong</span>
-      <span class="legend-shapes">jellyfish = SUI · ray = USDC · fish = other · size ∝ log(amount)</span>
-      <span class="reef-count" id="reef-count"></span>
-    </div>
-    <section class="stamplog" id="stamplog" aria-labelledby="log-h"></section>
-  </section>
-  <div class="side">
-    <section class="card paper" id="card" aria-labelledby="card-h" aria-live="off"></section>
-    <p class="score-strip" id="strip"></p>
-    <section class="slips" id="slips" aria-labelledby="slips-h"></section>
-    <section class="score" id="score" aria-labelledby="score-h"></section>
-  </div>
-</div>`;
+/** "Tatum stream × local memory stand-in" when every row came the same way, else "mixed sources" */
+function rowsSource(rs: Round[]): string {
+  const kinds = new Set(rs.map((r) => `${r.network_source}|${r.memory_source ?? 'none'}`));
+  if (kinds.size !== 1) return kinds.size ? 'mixed sources' : '';
+  const [net, mem] = [...kinds][0]!.split('|');
+  const stream = net === 'tatum' ? 'Tatum stream' : 'public fullnode';
+  const memory = mem === 'walrus' ? 'Walrus Memory' : mem === 'local-dev' ? 'local memory stand-in' : 'no memory';
+  return `${stream} × ${memory}`;
 }
 
 export class ReefPage {
@@ -43,6 +26,7 @@ export class ReefPage {
   private lastCardKey = '';
   private stamped = new Set<string>();
   private lastLogKey = '';
+  private failed = false;
   private announce = document.getElementById('announce')!;
   private reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -85,11 +69,14 @@ export class ReefPage {
     this.tick();
   }
 
+  /** Instant deliveries (history replayed at boot) only update state; the caller ticks once after the batch,
+   * instead of rebuilding the card a few hundred times on the main thread. */
   onCall(r: Round, instant: boolean) {
     store.byId.set(r.round_id, r);
     store.open.set(r.round_id, r);
     this.canvas.add(r, instant);
-    if (!instant) this.announce.textContent = `New sighting ${catNo(r.n)}: ${callLine(r)}.`;
+    if (instant) return;
+    this.announce.textContent = `New sighting ${catNo(r.n)}: ${callLine(r)}.`;
     this.tick();
   }
 
@@ -102,8 +89,9 @@ export class ReefPage {
         .sort((a, b) => Date.parse(b.resolution?.resolved_at ?? '') - Date.parse(a.resolution?.resolved_at ?? ''))
         .slice(0, 12);
     }
-    if (!instant && store.focus === r.round_id) store.holdUntil = performance.now() + HOLD_MS;
-    if (!instant) this.announce.textContent = `Sighting ${catNo(r.n)} resolved by checkpoint ${r.resolution?.resolving_checkpoint_seq}: call ${verdict(r) ?? 'void'}.`;
+    if (instant) return;
+    if (store.focus === r.round_id) store.holdUntil = performance.now() + HOLD_MS;
+    this.announce.textContent = `Sighting ${catNo(r.n)} resolved by checkpoint ${r.resolution?.resolving_checkpoint_seq}: call ${verdict(r) ?? 'void'}.`;
     this.tick();
   }
 
@@ -151,18 +139,31 @@ export class ReefPage {
     this.chooseFocus();
     this.renderLog();
     const r = store.focus ? store.byId.get(store.focus) ?? null : null;
-    const c = this.canvas.count();
-    this.countEl.textContent = `${store.open.size} calls open`;
-    void c;
+    const n = store.open.size;
+    this.countEl.textContent = store.status ? `${n} call${n === 1 ? '' : 's'} open` : '';
     this.renderCard(r);
   }
 
+  /** the snapshot (or the logger) could not be read: say so on the card instead of loading forever */
+  fail(why: string) {
+    this.failed = true;
+    this.card.dataset.state = 'void';
+    this.card.innerHTML = `<p class="eyebrow">Field card</p><h2 id="card-h" class="card-title">The notebook did not open</h2><p class="muted-on-paper">${esc(why)}. Every resolved round is still in <a class="link-paper" href="data/rounds.csv">rounds.csv</a>.</p>`;
+    this.scoreEl.innerHTML = `<h2 id="score-h" class="sec-h">Scorecard</h2><p class="muted">Not loaded — the numbers are in <a class="link-quiet" href="data/rounds.csv">rounds.csv</a>.</p>`;
+  }
+
   private renderCard(r: Round | null) {
+    if (this.failed) return;
     const clock = store.status?.clockMs ?? Date.now();
     if (!r) {
-      this.card.innerHTML = `<p class="eyebrow">Field card</p><h2 id="card-h" class="card-title">Waiting for the first sighting…</h2><p class="muted-on-paper">The naturalist is watching the stream for large transfers.</p>`;
+      const key = store.status ? 'waiting' : 'loading';
+      if (key === this.lastCardKey) return;
+      this.lastCardKey = key;
+      this.card.dataset.state = 'empty';
+      this.card.innerHTML = key === 'loading'
+        ? `<p class="eyebrow">Field card</p><h2 id="card-h" class="card-title">Opening the field notebook…</h2><div class="sk" aria-hidden="true"><i></i><i></i><i></i></div>`
+        : `<p class="eyebrow">Field card</p><h2 id="card-h" class="card-title">Waiting for the first sighting…</h2><p class="muted-on-paper">The naturalist is watching the stream for large transfers.</p>`;
       this.slips.innerHTML = '';
-      this.lastCardKey = '';
       return;
     }
     const open = !r.resolution;
@@ -172,18 +173,19 @@ export class ReefPage {
     const key = `${r.round_id}|${open}|${store.pinned ?? ''}|${store.stack.map((s) => s.round_id).join(',')}`;
     const v = verdict(r);
     const head = `
-      <p class="eyebrow"><span class="mono">${catNo(r.n)}</span> · ${esc(coinOf(r.coin_type))} sighting · <span class="mono">${esc(fmtAmount(r))}</span>
+      <p class="eyebrow"><span class="catno">${catNo(r.n)}</span> ${esc(coinOf(r.coin_type))} sighting · <span class="mono">${esc(fmtAmount(r))}</span>
         ${r.sender_seen_before ? '· returning wallet' : '· <b>first-seen wallet</b>'}</p>
       <h2 id="card-h" class="card-title">${esc(r.species ?? 'Unlabelled sighting')}</h2>
       <p class="ask">Moves again within <b>${r.horizon_min} min</b>?</p>
       <p class="call ${r.call === 'abstain' ? 'call--abstain' : ''}">${esc(callLine(r))}</p>
       <p class="rivals"><span>base rate <b class="mono">${pct(r.p_base)}</b></span><span>this wallet's habit <b class="mono">${pct(r.p_freq)}</b></span>${
-        r.call !== 'abstain' ? `<span>memory says <b class="mono">${pct(r.p_memory)}</b></span>` : ''
+        r.call !== 'abstain' ? `<span class="riv-mem">memory says <b class="mono">${pct(r.p_memory)}</b></span>` : ''
       }</p>`;
     let live: string;
+    let land = false;
     if (open) {
       live = `<div class="count" role="timer" aria-label="Time left on the chain's clock">
-        <div class="bar"><i id="bar-fill" style="width:${(frac * 100).toFixed(1)}%"></i></div>
+        <div class="bar" style="--ticks:${Math.max(1, Math.min(60, r.horizon_min))}"><i id="bar-fill" style="width:${(frac * 100).toFixed(1)}%"></i></div>
         <p class="count-t"><span class="mono" id="count-t">${mmss(left)}</span> left on the chain's clock${store.status?.mode === 'replay' ? ' <span class="muted-on-paper">(replay ×' + store.status.speed + ')</span>' : ''}</p>
       </div>`;
     } else {
@@ -192,7 +194,7 @@ export class ReefPage {
       const what = res.outcome === 1 ? 'MOVED AGAIN' : res.reason === 'gap' ? 'VOID' : 'DID NOT MOVE';
       const how = v === 'right' ? 'CALL RIGHT' : v === 'wrong' ? 'CALL WRONG' : 'NO CALL MADE';
       // the card re-renders whenever another round resolves; the stamp lands (animates) once per round, not on every re-render
-      const land = !this.reduce && !this.stamped.has(r.round_id);
+      land = !this.reduce && !this.stamped.has(r.round_id);
       this.stamped.add(r.round_id);
       live = `<div class="stamp ${cls} ${land ? 'stamp--in' : ''}" role="img" aria-label="Resolved by checkpoint ${esc(res.resolving_checkpoint_seq)}: ${what}, ${how}">
           <span class="stamp-a">RESOLVED · <span class="mono">checkpoint #${esc(res.resolving_checkpoint_seq)}</span></span>
@@ -205,14 +207,22 @@ export class ReefPage {
       ? `<div class="stackrow"><span class="stackrow-l">Recent stamps</span>${store.stack
           .map((s) => {
             const sv = verdict(s);
-            return `<button type="button" class="mini mini--${sv ?? 'none'} ${s.round_id === r.round_id ? 'is-on' : ''}" data-pick="${esc(s.round_id)}" aria-label="Show ${catNo(s.n)}: ${sv ?? 'void'}"><span class="mono">${String(s.n).slice(-3)}</span></button>`;
+            const said = `${catNo(s.n)}: ${callLine(s)} → ${s.resolution?.outcome === 1 ? 'moved again' : 'did not move'}`;
+            return `<button type="button" class="mini mini--${sv ?? 'none'} ${s.round_id === r.round_id ? 'is-on' : ''}" data-pick="${esc(s.round_id)}" title="${esc(said)}" aria-label="Show ${catNo(s.n)}: ${sv ?? 'void'}"><span class="mono">${String(s.n).padStart(4, '0')}</span></button>`;
           })
           .join('')}</div>`
       : '';
     const pin = store.pinned ? `<button type="button" class="pill" data-unpin>Follow the newest call</button>` : '';
-    const more = `<p class="more" id="more-open">${store.open.size > (open ? 1 : 0) ? `${store.open.size - (open ? 1 : 0)} other call${store.open.size - (open ? 1 : 0) === 1 ? '' : 's'} open on the reef — click a creature or a stamp to read its card.` : ''} ${pin}</p>`;
+    const others = store.open.size - (open ? 1 : 0);
+    const more = `<p class="more" id="more-open">${others > 0 ? `${others} other call${others === 1 ? '' : 's'} open on the reef — click a creature or a stamp to read its card.` : ''} ${pin}</p>`;
     if (key !== this.lastCardKey) {
+      this.card.dataset.state = open ? 'open' : v ?? 'void';
       this.card.innerHTML = head + live + stack + more;
+      this.card.classList.remove('is-thump');
+      if (land) {
+        void this.card.offsetWidth; // restart the thump when two stamps land back to back
+        this.card.classList.add('is-thump');
+      }
       this.lastCardKey = key;
       this.renderSlips(r);
     } else if (open) {
@@ -220,15 +230,29 @@ export class ReefPage {
       const t = document.getElementById('count-t');
       if (f) f.style.width = `${(frac * 100).toFixed(1)}%`;
       const mo = document.getElementById('more-open');
-      const others = store.open.size - 1;
-      if (mo && !store.pinned) mo.textContent = others > 0 ? `${others} other call${others === 1 ? '' : 's'} open on the reef — click a creature or a stamp to read its card.` : '';
+      const rest = store.open.size - 1;
+      if (mo && !store.pinned) mo.textContent = rest > 0 ? `${rest} other call${rest === 1 ? '' : 's'} open on the reef — click a creature or a stamp to read its card.` : '';
       if (t) t.textContent = mmss(left);
     }
+  }
+
+  /** a note as written, with the traits that differ from this sighting marked */
+  private noteHtml(text: string, sighting: string | undefined): { html: string; marked: boolean } {
+    const p = noteParts(text);
+    if (!p) return { html: esc(text.replace(/^Specimen /, '')), marked: false };
+    const traits = sighting ? traitDiff(p.species, sighting) : null;
+    const marked = !!traits?.some((t) => t.some((x) => x.diff));
+    const sp = traits ? traits.map((t) => t.map(({ w, diff }) => (diff ? `<mark class="diff">${esc(w)}</mark>` : esc(w))).join(' ')).join(', ') : esc(p.species);
+    return {
+      html: `<span class="slip-id">${esc(p.id)}</span><span class="slip-sep"> · </span><span class="slip-sp">${sp}</span><span class="slip-sep"> · </span><span class="slip-res">${esc(p.clause)}</span>`,
+      marked,
+    };
   }
 
   private renderSlips(r: Round) {
     const take = r.cited_note_ids.slice(0, 3);
     let body: string;
+    let anyMarked = false;
     if (!take.length) {
       body = `<p class="slip slip--empty">No notes within reach. The naturalist abstained and reported the base rate (${pct(r.p_base)}) — it does not guess without a memory.</p>`;
     } else {
@@ -241,8 +265,10 @@ export class ReefPage {
           const v = info ? noteVote(info.text) : null;
           const out = v ? (v.n === 1 ? (v.yes ? 'moved again' : 'did not move') : `${v.yes} of ${v.n} moved`) : '—';
           const where = info ? (info.backend === 'walrus' ? 'Walrus Memory' : 'local-dev memory (not Walrus)') : '';
+          const note = info ? this.noteHtml(info.text, r.species) : null;
+          if (note?.marked) anyMarked = true;
           return `<article class="slip">
-            <p class="slip-text">${info ? esc(info.text.replace(/^Specimen /, '')) : `<span class="mono">${esc(id)}</span> — note text not loaded`}</p>
+            <p class="slip-text">${note ? note.html : `<span class="mono">${esc(id)}</span> — note text not loaded`}</p>
             <p class="slip-meta"><span>distance <b class="mono">${d !== undefined ? d.toFixed(3) : '—'}</b></span>
               <span>written ${ageMs !== null ? ago(ageMs) + ' before the call' : '—'}</span>
               <span class="slip-out">${esc(out)}</span>
@@ -253,8 +279,9 @@ export class ReefPage {
     }
     const thin = r.call === 'abstain' && take.length > 0;
     if (thin) body = `<p class="slip slip--empty">Too little evidence: these notes add up to fewer than ${r.min_evidence ?? 2} weighted observations, so the naturalist abstained and reported the base rate (${pct(r.p_base)}).</p>` + body;
+    const key = anyMarked ? `<p class="slips-key"><mark class="diff">Marked</mark> words are where a note differs from this sighting; the rest match.</p>` : '';
     const more = r.cited_note_ids.length > 3 ? `<p class="slips-more">+ ${r.cited_note_ids.length - 3} more notes within reach ${thin ? 'were also recalled' : 'also voted'}.</p>` : '';
-    this.slips.innerHTML = `<h2 id="slips-h" class="sec-h">Notes it cited <span class="sec-sub">(${r.cited_note_ids.length} within reach)</span></h2>${body}${more}`;
+    this.slips.innerHTML = `<h2 id="slips-h" class="sec-h">Notes it cited <span class="sec-sub">(${r.cited_note_ids.length} within reach)</span></h2>${key}${body}${more}`;
   }
 
   // ---------------------------------------------------------------- scorecard
@@ -265,28 +292,34 @@ export class ReefPage {
     const best = Math.min(...(vals.filter((x): x is number => x !== null) as number[]));
     const cellHtml = (x: number | null) =>
       `<td><a class="num ${x === best ? 'num--best' : ''}" href="${esc(store.status?.csv_url ?? 'data/rounds.csv')}" title="Every number is derived from rounds.csv" target="_blank" rel="noopener">${b4(x)}</a></td>`;
-    return `<tr><th scope="row">${label}</th><td class="mono">${c.n}</td>${vals.map(cellHtml).join('')}</tr>`;
+    return `<tr><th scope="row">${label}</th><td class="mono">${fmtN(c.n)}</td>${vals.map(cellHtml).join('')}</tr>`;
   }
 
   private skill(c: Cell, who: string): string {
     if (c.skill_vs_base === null) return '';
     const s = c.skill_vs_base * 100;
-    return s >= 0 ? `${who}: memory beats the base rate by ${s.toFixed(1)}%.` : `${who}: memory trails the base rate by ${Math.abs(s).toFixed(1)}% — reported as logged.`;
+    const subject = who ? `${who}: memory` : 'Memory';
+    return s >= 0 ? `${subject} beats the base rate by ${s.toFixed(1)}%.` : `${subject} trails the base rate by ${Math.abs(s).toFixed(1)}% — reported as logged.`;
   }
 
   private sparkline(): string {
-    const { mem, base } = cumulative(store.history);
+    const hist = store.history;
+    const { mem, base } = cumulative(hist);
     if (mem.length < 3) return `<p class="muted">Curve appears after 3 resolved rounds.</p>`;
-    const W = 320, H = 64, pad = 4;
+    const W = 320, H = 72, pad = 5;
     const all = [...mem, ...base];
     const lo = Math.min(...all), hi = Math.max(...all);
     const sx = (i: number) => pad + (i / (mem.length - 1)) * (W - 2 * pad);
     const sy = (v: number) => H - pad - ((v - lo) / (hi - lo || 1)) * (H - 2 * pad);
     const line = (a: number[]) => a.map((v, i) => `${i ? 'L' : 'M'}${sx(i).toFixed(1)},${sy(v).toFixed(1)}`).join(' ');
-    return `<figure class="spark"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Cumulative Brier score over ${mem.length} resolved rounds: memory ends at ${mem[mem.length - 1]!.toFixed(3)}, base rate at ${base[base.length - 1]!.toFixed(3)}">
+    const ref = 0.25 > lo && 0.25 < hi;
+    const where = store.status?.mode === 'live' ? 'the logger has resolved' : 'in this replay';
+    const src = rowsSource(hist);
+    return `<figure class="spark"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Cumulative Brier score over the ${mem.length} rounds ${where}: memory ends at ${mem[mem.length - 1]!.toFixed(3)}, base rate at ${base[base.length - 1]!.toFixed(3)}">
+      ${ref ? `<path d="M0,${sy(0.25).toFixed(1)}H${W}" stroke="#F2EAD3" stroke-opacity=".32" stroke-width="1" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"/>` : ''}
       <path d="${line(base)}" fill="none" stroke="#8FAAA4" stroke-width="2" vector-effect="non-scaling-stroke"/>
       <path d="${line(mem)}" fill="none" stroke="#D4A83A" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg>
-      <figcaption><i class="swatch swatch--mem"></i>memory <i class="swatch swatch--base"></i>base rate — cumulative Brier over rounds, lower is better</figcaption></figure>`;
+      <figcaption><i class="swatch swatch--mem"></i>memory <i class="swatch swatch--base"></i>base rate — cumulative Brier over the <b>${fmtN(mem.length)}</b> rounds ${where}${src ? ` (${esc(src)})` : ''}, oldest to newest; lower is better${ref ? '. Dashed: 0.25, what always saying 50% scores' : ''}.</figcaption></figure>`;
   }
 
   /** what-if numbers for the judge controls; pure function of store state */
@@ -296,6 +329,7 @@ export class ReefPage {
     const dists = hist.flatMap((r) => r.cited_distances);
     const dmax = dists.length ? Math.ceil(Math.max(...dists) * 100) / 100 : 0.3;
     const maxD = store.maxD ?? dmax;
+    const where = store.status?.mode === 'live' ? 'from the logger' : 'in this replay';
     let whatif = '';
     const horizonDiffers = store.horizon !== H;
     if (hist.length) {
@@ -310,12 +344,12 @@ export class ReefPage {
           sl += brier(r.p_memory, o);
         }
         const n = hist.length;
-        whatif += `<p class="whatif">What if the naturalist were stricter (maxDistance ${store.maxD.toFixed(2)})? It would still cite notes on <b class="mono">${called}</b> of <b class="mono">${n}</b> rounds. Brier: stricter memory <b class="mono">${b4(sm / n)}</b> · logged memory <b class="mono">${b4(sl / n)}</b> · base rate <b class="mono">${b4(sb / n)}</b>. Recomputed in your browser from the logged citations — the calls themselves are unchanged.</p>`;
+        whatif += `<p class="whatif">What if the naturalist were stricter (maxDistance ${store.maxD.toFixed(2)})? It would still cite notes on <b class="mono">${fmtN(called)}</b> of the <b class="mono">${fmtN(n)}</b> rounds ${where}. Brier: stricter memory <b class="mono">${b4(sm / n)}</b> · logged memory <b class="mono">${b4(sl / n)}</b> · base rate <b class="mono">${b4(sb / n)}</b>. Recomputed in your browser from the logged citations — the calls themselves are unchanged.</p>`;
       }
       if (horizonDiffers) {
         const k = hist.map((r) => movedWithin(r, store.horizon)).filter((x): x is number => x !== null);
         const y = k.reduce<number>((a, b) => a + b, 0);
-        whatif += `<p class="whatif">Re-asked at <b>${store.horizon} min</b>: <b class="mono">${y}</b> of <b class="mono">${k.length}</b> wallets moved within that time (${pct(y / (k.length || 1))}), re-derived from each resolving checkpoint's timestamp. Brier is not recomputed — every call was made for ${H} minutes.</p>`;
+        whatif += `<p class="whatif">Re-asked at <b>${store.horizon} min</b>: <b class="mono">${fmtN(y)}</b> of <b class="mono">${fmtN(k.length)}</b> wallets ${where} moved within that time (${pct(y / (k.length || 1))}), re-derived from each resolving checkpoint's timestamp. Brier is not recomputed — every call was made for ${H} minutes.</p>`;
       }
     }
     return { dmax, maxD, whatif };
@@ -333,7 +367,7 @@ export class ReefPage {
     const wasOpen = keepOpen || !!(document.getElementById('judge') as HTMLDetailsElement | null)?.open;
     const s = store.score;
     if (!s) {
-      this.scoreEl.innerHTML = `<h2 id="score-h" class="sec-h">Scorecard</h2><p class="muted">Loading…</p>`;
+      this.scoreEl.innerHTML = `<h2 id="score-h" class="sec-h">Scorecard</h2><p class="muted">Loading the scorecard…</p>`;
       return;
     }
     const hasHead = s.headline.all.n > 0;
@@ -348,15 +382,19 @@ export class ReefPage {
     const hist = store.history;
     const nv = card.never_seen;
     const csv = esc(store.status?.csv_url ?? 'data/rounds.csv');
+    const verdictLine = this.skill(nv, '');
     this.strip.innerHTML = nv.n
-      ? `<b>Never-seen wallets</b> <span>N <span class="mono">${nv.n}</span></span> <span>memory <a class="num ${nv.brier_memory! <= Math.min(nv.brier_base!, nv.brier_freq!) ? 'num--best' : ''}" href="${csv}" target="_blank" rel="noopener">${b4(nv.brier_memory)}</a></span> <span>base rate <a class="num" href="${csv}" target="_blank" rel="noopener">${b4(nv.brier_base)}</a></span> <span>frequency <a class="num" href="${csv}" target="_blank" rel="noopener">${b4(nv.brier_freq)}</a></span> ${hasHead ? '' : '<span class="tag tag--dev">Dev data</span>'} <span class="strip-v">${esc(this.skill(nv, 'Never-seen wallets'))}</span>`
+      ? `<p class="strip-h"><b>Never-seen wallets</b> <span>N <span class="mono">${fmtN(nv.n)}</span></span>${hasHead ? '' : ' <span class="tag tag--dev">Dev data</span>'}</p>
+        <p class="strip-nums"><span>memory <a class="num ${nv.brier_memory! <= Math.min(nv.brier_base!, nv.brier_freq!) ? 'num--best' : ''}" href="${csv}" target="_blank" rel="noopener">${b4(nv.brier_memory)}</a></span> <span>base rate <a class="num" href="${csv}" target="_blank" rel="noopener">${b4(nv.brier_base)}</a></span> <span>frequency <a class="num" href="${csv}" target="_blank" rel="noopener">${b4(nv.brier_freq)}</a></span></p>
+        ${verdictLine ? `<p class="strip-v">${esc(verdictLine)} Brier score, lower is better.</p>` : ''}`
       : '';
     this.scoreEl.innerHTML = `
-      <h2 id="score-h" class="sec-h">Scorecard ${label}</h2>
-      <table class="scoretable">
+      <h2 id="score-h" class="sec-h">Scorecard</h2>
+      <p class="score-tag">${label}</p>
+      <div class="table-wrap"><table class="scoretable">
         <thead><tr><th scope="col"><span class="sr-only">Group</span></th><th scope="col">N</th><th scope="col">Memory</th><th scope="col">Base rate</th><th scope="col">Frequency table</th></tr></thead>
         <tbody>${this.cellRow('Never-seen wallets', card.never_seen)}${this.cellRow('All rounds', card.all)}</tbody>
-      </table>
+      </table></div>
       <p class="skill">${esc(this.skill(card.all, 'All rounds'))} <span class="muted">Brier: lower is better; always saying 50% scores 0.25. Click any number for rounds.csv.</span></p>
       ${note}${this.sparkline()}
       <details class="judge" id="judge"${wasOpen ? ' open' : ''}>
