@@ -20,6 +20,8 @@ export interface LoopDeps {
   now?: () => number;
   emit?: (event: 'sighting' | 'call' | 'resolution' | 'note', data: unknown) => void;
   onError?: (msg: string) => void;
+  /** Credit governor gate: false = do not open a round on this checkpoint (its horizon would outlive the Tatum on-window). */
+  mayOpenCall?: (source: NetworkSource, nowMs: number) => boolean;
 }
 
 const HISTORY_TTL_MS = 2 * 3600_000;
@@ -76,6 +78,7 @@ export class CoreLoop {
   private now: () => number;
   roundsOpened = 0;
   roundsResolved = 0;
+  roundsSkippedWindow = 0;
   /** Resolutions computed but not yet on disk (write failed): retried on every checkpoint, never recomputed. */
   private unpersisted = new Map<string, { r: Resolution; source: NetworkSource }>();
 
@@ -260,6 +263,11 @@ export class CoreLoop {
 
   private async openSighting(t: Transfer, seq: bigint, source: NetworkSource): Promise<void> {
     if (this.d.store.has(t.txDigest)) return; // replayed checkpoint after restart
+    // every Tatum round must resolve on the Tatum stream: none opens in the last horizon of an on-window
+    if (this.d.mayOpenCall && !this.d.mayOpenCall(source, this.now())) {
+      this.roundsSkippedWindow++;
+      return;
+    }
     const pBase = r6(this.base.p());
     const pFreq = r6(this.freq.p(t.sender, pBase));
     const prior = this.seenSenders.get(t.sender) ?? 0;

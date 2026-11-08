@@ -13,6 +13,7 @@
     "server": "tsx src/server.ts",
     "score": "tsx scripts/score.ts",
     "verify": "tsx scripts/verify.ts",
+    "budget": "tsx scripts/tatum-budget.ts",
     "bench": "tsx scripts/bench.ts",
     "snapshot": "tsx scripts/snapshot.ts",
     "spike:stream": "tsx scripts/spike-stream.ts",

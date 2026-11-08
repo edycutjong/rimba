@@ -53,6 +53,23 @@ describe('CoreLoop — sighting → recall → call → resolve → remember', (
     expect(c.species).toContain('SUI transfer');
   });
 
+  it('credit governor gate: no Tatum round opens when its horizon would outlive the on-window; public rounds still open', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'rimba-'));
+    const store = new RoundStore(join(dir, 'calls.jsonl'), join(dir, 'res.jsonl'));
+    const mem = new LocalNoteMemory([], () => T0);
+    const gate: [string, number][] = [];
+    const loop = new CoreLoop({
+      cfg, store, writer: new NoteWriter(() => mem, () => {}), memory: () => mem, notes: [], now: () => T0,
+      mayOpenCall: (source, now) => (gate.push([source, now]), source !== 'tatum'),
+    });
+    await loop.onCheckpoint(cp(1, T0, [{ digest: 'T1', from: A, to: B, amount: BIG }]), 'tatum');
+    await loop.onCheckpoint(cp(2, T0, [{ digest: 'T2', from: C, to: D, amount: BIG }]), 'public-dev');
+    expect(store.has('T1')).toBe(false);
+    expect(store.call('T2')?.network_source).toBe('public-dev');
+    expect(loop.roundsSkippedWindow).toBe(1);
+    expect(gate).toEqual([['tatum', T0], ['public-dev', T0]]);
+  });
+
   it('I1: the call is on disk before its resolution, and resolution is keyed by round_id', async () => {
     const s = setup();
     await s.loop.onCheckpoint(cp(1, T0, [{ digest: 'T1', from: A, to: B, amount: BIG }]), 'public-dev');

@@ -19,6 +19,8 @@ export const files = {
   health: () => join(DATA_DIR, 'health.json'),
   /** Pace + counterparty memory of the stream (lastMove, sender>recipient pairs), saved every 5 min and on stop. */
   pace: () => join(DATA_DIR, 'pace.json'),
+  /** Tatum credit governor state: usage meter, 402 fallback, duty period, hard-stop latch. */
+  governor: () => join(DATA_DIR, 'governor.json'),
 };
 
 export function appendJsonl(path: string, row: unknown): void {
@@ -144,6 +146,8 @@ export interface RimbaConfig {
   source: string; // where these numbers came from
   naturalist?: { max_distance: { walrus: number; 'local-dev': number }; recall_max_distance?: { walrus: number; 'local-dev': number }; limit: number; shrink: number; min_evidence?: number; recall_timeout_ms: number };
   notes?: { daily_budget: number; supersede_window: number; supersede_cooldown_min: number };
+  /** Tatum credit governor (src/stream/governor.ts); missing keys fall back to DEFAULT_BUDGET. */
+  tatum_budget?: Partial<import('./stream/governor.js').TatumBudget>;
 }
 
 export function loadConfig(): RimbaConfig {
