@@ -1,0 +1,102 @@
+{
+  "generated_at": "2026-11-08T00:42:22.008Z",
+  "usage_source": "governor.json (usage API 2026-11-08T00:40:59.488Z + local count)",
+  "plan_credits": 4000000,
+  "target_frac": 0.85,
+  "hard_stop_frac": 0.9,
+  "burn_credits_per_hour": 24600,
+  "full_until": "2026-11-10T17:00:00Z",
+  "judging_until": "2026-11-17T17:00:00Z",
+  "cycle_end": "2026-12-08T00:00:00Z",
+  "nominal": {
+    "used_now": 111730,
+    "at_full_until": 1693360,
+    "at_cycle_end": 3390760,
+    "frac_at_cycle_end": 0.8477,
+    "tatum_hours_after_deadline": 69,
+    "first_periods": [
+      {
+        "start": "2026-11-10T17:00:00.000Z",
+        "on_min": 45,
+        "period_min": 217,
+        "duty": 0.2077
+      },
+      {
+        "start": "2026-11-10T20:36:36.602Z",
+        "on_min": 45,
+        "period_min": 217,
+        "duty": 0.2077
+      },
+      {
+        "start": "2026-11-11T00:13:13.205Z",
+        "on_min": 45,
+        "period_min": 217,
+        "duty": 0.2077
+      },
+      {
+        "start": "2026-11-11T03:49:49.808Z",
+        "on_min": 45,
+        "period_min": 217,
+        "duty": 0.2077
+      },
+      {
+        "start": "2026-11-11T07:26:26.411Z",
+        "on_min": 45,
+        "period_min": 217,
+        "duty": 0.2077
+      },
+      {
+        "start": "2026-11-11T11:03:03.014Z",
+        "on_min": 45,
+        "period_min": 217,
+        "duty": 0.2077
+      }
+    ]
+  },
+  "burn_plus_25pct": {
+    "used_now": 111730,
+    "at_full_until": 2088767,
+    "at_cycle_end": 3403330,
+    "frac_at_cycle_end": 0.8508,
+    "tatum_hours_after_deadline": 42.8,
+    "first_periods": [
+      {
+        "start": "2026-11-10T17:00:00.000Z",
+        "on_min": 45,
+        "period_min": 283,
+        "duty": 0.1591
+      },
+      {
+        "start": "2026-11-10T21:42:51.711Z",
+        "on_min": 45,
+        "period_min": 284,
+        "duty": 0.1585
+      },
+      {
+        "start": "2026-11-11T02:26:45.076Z",
+        "on_min": 45,
+        "period_min": 285,
+        "duty": 0.1579
+      },
+      {
+        "start": "2026-11-11T07:11:41.462Z",
+        "on_min": 45,
+        "period_min": 286,
+        "duty": 0.1573
+      },
+      {
+        "start": "2026-11-11T11:57:42.295Z",
+        "on_min": 45,
+        "period_min": 287,
+        "duty": 0.1567
+      },
+      {
+        "start": "2026-11-11T16:44:49.061Z",
+        "on_min": 45,
+        "period_min": 288,
+        "duty": 0.1561
+      }
+    ]
+  },
+  "within_target": true
+}

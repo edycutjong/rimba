@@ -114,6 +114,16 @@ budget), and a species whose behaviour drifts gets a newer superseding note rath
 Both are behind one `CheckpointSource` / memory-backend interface, which is how the same code runs against the public
 fullnode and a local stand-in before credentials exist; every row records its `network_source` and memory backend.
 
+**Running on a metered plan.** The full checkpoint stream costs ≈ 24.6K Tatum credits an hour, since every streamed message is
+billed. The free plan's 100K credits ran out at 19:05 UTC on 7 Nov. The old logger then retried the same endpoint after each
+402 for 5 h 18 min and never fell back, so 78,717 checkpoints became a logged gap, and rounds that spanned it were voided.
+The stream has been back on Tatum since 00:23 UTC on 8 Nov, on a paid Starter plan (4M credits per cycle). A 402 now
+switches the stream, the backfill and `pnpm verify` to the public fullnode at once (rows tagged `public-dev`). Tatum is
+retried every 10 min. A credit governor ([`src/stream/governor.ts`](src/stream/governor.ts)) keeps the full stream until the
+deadline, then runs 45-min Tatum windows sized to stay ≤ 85 % of the plan (projection: 84.8 %). It latches to public at 90 %.
+A Tatum round opens only if it can resolve on Tatum. Details and the measured numbers are in
+[`evidence/tatum-credits-2026-11-08.md`](evidence/tatum-credits-2026-11-08.md).
+
 ## 📊 Engineering Rigor
 
 | Measure | Value | Reproduce |
@@ -185,7 +195,7 @@ Credentials are read from `~/.config/tatum/tatum.env` (`TATUM_API_KEY`) and `~/.
 ## 🧪 Testing & CI
 
 ```bash
-pnpm test && pnpm typecheck && pnpm lint   # 94 tests, type and lint clean
+pnpm test && pnpm typecheck && pnpm lint   # 117 tests, type and lint clean
 pnpm score --write                         # Brier scorecard → evidence/
 pnpm verify                                # re-derive sampled outcomes from the chain
 pnpm bench                                 # p50 / p95 numbers

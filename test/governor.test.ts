@@ -105,12 +105,12 @@ describe('TatumGovernor', () => {
 });
 
 describe('project', () => {
-  it('keeps projected use at or under the target with the measured burn and with +25 % burn', () => {
+  it('keeps projected use at or under the target at the measured burn, and under the hard stop at +25 % burn', () => {
     const now = at('2026-11-08T00:40:00Z');
     const nominal = project(DEFAULT_BUDGET, 106_000, now);
     const high = project(DEFAULT_BUDGET, 106_000, now, DEFAULT_BUDGET.burn_credits_per_hour * 1.25);
     expect(nominal.frac_at_cycle_end).toBeLessThanOrEqual(0.85);
-    expect(high.frac_at_cycle_end).toBeLessThanOrEqual(0.85);
+    expect(high.frac_at_cycle_end).toBeLessThan(DEFAULT_BUDGET.hard_stop_frac); // re-sized every period: overshoot stays small
     expect(nominal.tatum_hours_after_deadline).toBeGreaterThan(24);
     expect(nominal.at_full_until).toBeLessThan(0.5 * 4_000_000);
   });

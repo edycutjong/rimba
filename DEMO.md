@@ -12,12 +12,16 @@
 
 ```bash
 pnpm install
-pnpm test                 # 94 tests
+pnpm test                 # 117 tests
 pnpm score                # Brier tables from data/live/ (add --write to refresh evidence/)
 pnpm verify --offline     # invariants I1–I3 over the local rounds
 pnpm verify               # re-derive a sample of outcomes from the chain (uses Tatum if a key is configured, else the public fullnode)
 pnpm bench                # latency percentiles
+pnpm budget               # Tatum credit projection under the governor (evidence/tatum-budget-*.json with --write)
 ```
+
+If Tatum answers HTTP 402 (plan out of credits), the logger and `pnpm verify` switch to the public fullnode and tag those
+rows `public-dev`. The logger retries Tatum every 10 min; see `evidence/tatum-credits-2026-11-08.md`.
 
 `pnpm score` and `pnpm verify --offline` read `data/live/`, which only exists after a local `pnpm logger` run.
 
