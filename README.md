@@ -17,6 +17,7 @@
   ![Sui](https://img.shields.io/badge/Sui_mainnet-4da2ff?style=flat)
   [![License](https://img.shields.io/badge/License-MIT-yellow)](https://opensource.org/licenses/MIT)
   [![CI](https://github.com/edycutjong/rimba/actions/workflows/ci.yml/badge.svg)](https://github.com/edycutjong/rimba/actions/workflows/ci.yml)
+  [![Release](https://img.shields.io/github/v/release/edycutjong/rimba?sort=semver&color=2ea44f)](https://github.com/edycutjong/rimba/releases/latest)
 
 </div>
 
@@ -201,8 +202,10 @@ pnpm score --write                         # Brier scorecard → evidence/
 pnpm verify                                # re-derive sampled outcomes from the chain
 pnpm bench                                 # p50 / p95 numbers
 ```
-CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs typecheck, lint, tests and the web build on every push;
-CodeQL, gitleaks and Dependabot run alongside.
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) is a 6-stage pipeline: quality (typecheck, lint, tests on Node 22 + 24) and
+security (gitleaks full history, `pnpm audit`) in parallel → web build with a bundle budget → Playwright E2E on the reef and
+`pnpm bench` p95 budgets → production deploy to rimba.edycu.dev. Every green push to main is tagged with a semantic version
+and released ([`release.yml`](.github/workflows/release.yml)). CodeQL and Dependabot run alongside.
 
 ## 📁 Project Structure
 

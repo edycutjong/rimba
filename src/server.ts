@@ -98,7 +98,7 @@ export function makeServer(opts: ServerOptions = {}): Server {
   const relayerHealth = async () => {
     if (!opts.relayerHealth) return null;
     if (Date.now() - relayer.at > 60_000) {
-      relayer = { at: Date.now(), value: await opts.relayerHealth().catch((e) => ({ error: String(e) })) };
+      relayer = { at: Date.now(), value: await opts.relayerHealth().catch((e) => { console.error('[server] relayer health failed:', e); return { error: 'relayer unavailable' }; }) };
     }
     return relayer.value;
   };
@@ -170,7 +170,9 @@ export function makeServer(opts: ServerOptions = {}): Server {
           return json(res, 404, { error: 'not found', endpoints: ['/events', '/api/rounds', '/api/score', '/api/health', '/api/notes', '/rounds.csv', '/integrations/verify'] });
       }
     } catch (e) {
-      return json(res, 500, { error: String(e) });
+      // Log the detail server-side; never echo error text or stack to the client (CodeQL js/stack-trace-exposure).
+      console.error(`[server] ${req.method} ${req.url} failed:`, e);
+      return json(res, 500, { error: 'internal error' });
     }
   });
   server.on('close', () => {

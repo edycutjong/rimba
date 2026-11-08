@@ -10,3 +10,5 @@ data/live/
 logs/
 *.log
 .memwal/
+test-results/
+playwright-report/
