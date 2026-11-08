@@ -1,0 +1,53 @@
+name: Release
+# Automatic semantic versioning: after CI passes on main, tag the commit and publish a GitHub Release.
+# Bump rule over the commits since the last v* tag:
+#   "BREAKING CHANGE" or "<type>!:"  -> major
+#   "feat:" / "feat(scope):"         -> minor
+#   anything else                     -> patch
+# A commit containing "[skip release]" (or a range of only such commits) is not released.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+permissions:
+  contents: write
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  release:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+      - name: Compute next version and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          last=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname --merged "$SHA" | head -1)
+          if [ -z "$last" ]; then
+            next="v1.0.0"; range="$SHA"
+          else
+            if [ "$(git rev-list -n1 "$last")" = "$SHA" ]; then echo "already released as $last"; exit 0; fi
+            range="$last..$SHA"
+            msgs=$(git log --format='%s%n%b' "$range")
+            if [ "$(git log --format='%H' "$range" | wc -l)" = "$(git log --format='%H' --grep='\[skip release\]' "$range" | wc -l)" ]; then
+              echo "only [skip release] commits since $last"; exit 0
+            fi
+            IFS=. read -r MA MI PA <<< "${last#v}"
+            if echo "$msgs" | grep -qE '^BREAKING CHANGE|^[a-z]+(\([^)]*\))?!:'; then MA=$((MA+1)); MI=0; PA=0
+            elif echo "$msgs" | grep -qE '^feat(\([^)]*\))?:'; then MI=$((MI+1)); PA=0
+            else PA=$((PA+1)); fi
+            next="v$MA.$MI.$PA"
+          fi
+          if git rev-parse -q --verify "refs/tags/$next" >/dev/null; then echo "$next exists"; exit 0; fi
+          echo "releasing $next at $SHA (since ${last:-start})"
+          args=(--target "$SHA" --title "$next" --generate-notes)
+          [ -n "$last" ] && args+=(--notes-start-tag "$last")
+          gh release create "$next" "${args[@]}"
