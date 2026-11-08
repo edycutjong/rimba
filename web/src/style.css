@@ -190,7 +190,7 @@ input.range:disabled { cursor: not-allowed; opacity: .4; }
 }
 @media (max-width: 900px) {
   .top { grid-template-columns: 1fr auto; }
-  .ticker { grid-column: 1 / -1; order: 3; white-space: normal; }
+  .ticker { grid-column: 1 / -1; order: 3; white-space: normal; min-height: 3em; } /* reserve 2 lines: "Connecting…" → replay text must not push the page (CLS) */
   .nav { grid-column: 1 / -1; order: 4; flex-wrap: wrap; }
   .two { grid-template-columns: minmax(0, 1fr); }
 }
