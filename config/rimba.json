@@ -35,12 +35,12 @@
     "judging_weight": 3,
     "target_frac": 0.85,
     "hard_stop_frac": 0.9,
-    "burn_credits_per_hour": 24600,
+    "burn_credits_per_hour": 30000,
     "credits_per_call": 2,
     "on_window_min": 45,
     "open_slack_min": 3,
     "retry_402_min": 10,
     "usage_poll_min": 15,
-    "source": "Starter plan 4M credits/cycle 8 Nov-8 Dec 2026 (auto-upgrade off); burn 24.6K credits/h measured on the full stream 2026-11-07 (evidence/day0/tatum-usage.jsonl)"
+    "source": "Starter plan 4M credits/cycle 8 Nov-8 Dec 2026 (auto-upgrade off); burn 29,984 credits/h measured by the usage API on the full stream 2026-11-08 00:40:59->00:55:59 UTC (7,496 credits in 15.0 min): evidence/tatum-credits-2026-11-08.md"
   }
 }

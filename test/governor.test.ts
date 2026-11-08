@@ -112,6 +112,6 @@ describe('project', () => {
     expect(nominal.frac_at_cycle_end).toBeLessThanOrEqual(0.85);
     expect(high.frac_at_cycle_end).toBeLessThan(DEFAULT_BUDGET.hard_stop_frac); // re-sized every period: overshoot stays small
     expect(nominal.tatum_hours_after_deadline).toBeGreaterThan(24);
-    expect(nominal.at_full_until).toBeLessThan(0.5 * 4_000_000);
+    expect(nominal.at_full_until).toBeLessThan(0.6 * 4_000_000); // full stream to the deadline leaves room for judging-week windows
   });
 });

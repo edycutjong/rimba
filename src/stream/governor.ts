@@ -39,7 +39,7 @@ export const DEFAULT_BUDGET: TatumBudget = {
   judging_weight: 3,
   target_frac: 0.85,
   hard_stop_frac: 0.9,
-  burn_credits_per_hour: 24_600,
+  burn_credits_per_hour: 30_000,
   credits_per_call: 2,
   on_window_min: 45,
   open_slack_min: 3,
