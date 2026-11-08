@@ -27,3 +27,35 @@ jobs:
       - name: Web build
         working-directory: web
         run: pnpm install --ignore-workspace --frozen-lockfile && pnpm build
+
+  deploy:
+    # Production deploy of the reef (web/) after every green push to main.
+    # Needs repo secret VERCEL_TOKEN; org/project ids are not secret.
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    environment:
+      name: production
+      url: https://rimba.edycu.dev
+    env:
+      VERCEL_ORG_ID: team_RJcQx4a22v5LqjetHv8HhhLY
+      VERCEL_PROJECT_ID: prj_gaxBT2wBMJXHj5FZP68gFpW6qYWy
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npx --yes vercel@53.2.0 pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+      - run: npx --yes vercel@53.2.0 build --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - run: npx --yes vercel@53.2.0 deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Smoke test
+        run: curl -fsS -o /dev/null -w "%{http_code}\n" https://rimba.edycu.dev/

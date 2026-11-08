@@ -6,7 +6,7 @@
 
   <br/>
 
-  [![Live Reef](https://img.shields.io/badge/🚀_Live-Reef-06b6d4?style=for-the-badge)](https://rimba-five.vercel.app)
+  [![Live Reef](https://img.shields.io/badge/🚀_Live-Reef-06b6d4?style=for-the-badge)](https://rimba.edycu.dev)
   [![Built for Total Recall](https://img.shields.io/badge/Tatum_×_Walrus-Total_Recall-8b5cf6?style=for-the-badge)](https://tatum.io/hackathon/total-recall)
 
   <br/>
@@ -44,7 +44,7 @@ The animated banner above replays one real logged call (No. 0409: 699.94 SUI, `Y
 342451091, outcome written as note No.0218). It ran on development data (public fullnode + local memory stand-in) and
 illustrates the loop; it is not a scorecard figure.
 
-The [live reef](https://rimba-five.vercel.app) replays a committed snapshot of real Sui mainnet sightings at 10× speed
+The [live reef](https://rimba.edycu.dev) replays a committed snapshot of real Sui mainnet sightings at 10× speed
 (badge `REPLAY`); run the logger and server locally and the same page switches to `LIVE` over server-sent events.
 Each jellyfish (SUI), ray (USDC) or fish (other coin) is a large transfer. The card on the right is one call: the
 species sentence, `YES/NO/ABSTAIN` with a probability, the base rate and the wallet's own habit beside it, the countdown
@@ -138,7 +138,7 @@ fullnode and a local stand-in before credentials exist; every row records its `n
 
 No wallet signing anywhere: RIMBA only reads the chain, and its code never submits a Sui transaction. The Walrus Memory SDK authenticates with a delegate key.
 
-- Reef page: <https://rimba-five.vercel.app> (Vercel static, replay of [`web/public/data/snapshot.json`](web/public/data/snapshot.json); every resolved round under the current question is in [`web/public/data/rounds.csv`](web/public/data/rounds.csv): 2,394 rows at the 7 Nov early freeze, 2,379 of them with the local stand-in; open rounds are not included)
+- Reef page: <https://rimba.edycu.dev> (Vercel static, replay of [`web/public/data/snapshot.json`](web/public/data/snapshot.json); every resolved round under the current question is in [`web/public/data/rounds.csv`](web/public/data/rounds.csv): 2,394 rows at the 7 Nov early freeze, 2,379 of them with the local stand-in; open rounds are not included)
 - Logger: runs continuously on the builder's machine (`pnpm logger`) and resolves each call on the chain's own clock.
 
 ## 🧮 Scorecard and what it does not claim yet

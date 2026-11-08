@@ -2,7 +2,7 @@
 
 ## Look
 
-1. Open <https://rimba-five.vercel.app>. The `REPLAY` badge means a committed snapshot of real mainnet sightings is
+1. Open <https://rimba.edycu.dev>. The `REPLAY` badge means a committed snapshot of real mainnet sightings is
    playing at 10×; the "Dev data" tag marks rows that did not come through Tatum and Walrus Memory.
 2. Click a creature or a recent stamp to read its call card: the species sentence, the call, the base rate and the
    wallet's own habit, the notes cited, and how it resolved.
