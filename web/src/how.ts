@@ -76,7 +76,7 @@ export function howHtml(): string {
     <p>The scripts read the append-only logs in <span class="mono">data/<wbr>live/</span>, which a local <span class="mono">pnpm logger</span> run writes; the published ledger is <a class="link-intro" href="data/rounds.csv" target="_blank" rel="noopener">rounds.csv</a>. With a Tatum key in <span class="mono">~/.config/<wbr>tatum/<wbr>tatum.env</span> the logger and <span class="mono">pnpm verify</span> read the chain through Tatum; without one, through Sui’s public fullnode, and they say so. Code: <a class="link-intro" href="${REPO}" target="_blank" rel="noopener">github.com/edycutjong/rimba</a>.</p>
     <div class="code" role="group" aria-label="Commands">
       <button type="button" class="pill copy" data-copy aria-label="Copy the commands"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10.5 3.5v-.5A1.5 1.5 0 0 0 9 1.5H3A1.5 1.5 0 0 0 1.5 3v6A1.5 1.5 0 0 0 3 10.5h.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg><span data-copy-t>Copy</span></button>
-      ${STEPS.map(([c, d]) => `<div class="code-row"><code>${esc(c)}</code><span class="cmt">${d ? `# ${esc(d)}` : ''}</span></div>`).join('')}
+      ${STEPS.map(([c, d]) => (d ? `<div class="code-row"><code>${esc(c)}</code><span class="cmt"># ${esc(d)}</span></div>` : `<div class="code-row is-wide"><code>${esc(c)}</code></div>`)).join('')}
     </div>
     <p class="muted">Every scorecard number on the reef links to <span class="mono">rounds.csv</span>; each row there names its checkpoint and transaction digest.</p>
   </section>

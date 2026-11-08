@@ -308,10 +308,12 @@ input.range:disabled { cursor: not-allowed; opacity: .4; }
 .status--pending { border: 1px solid var(--before); color: var(--before); }
 .ticks { margin: 0; padding-left: 22px; } .ticks li { margin: 0 0 10px; }
 .code { position: relative; background: var(--deep); border: 1px solid var(--rule); border-radius: 4px; padding: 14px 16px; font: 400 15px/1.55 var(--font-data); overflow-x: auto; max-width: 100%; margin: 0 0 14px; }
-.code-row { display: grid; grid-template-columns: 11.5em minmax(0, 1fr); gap: 0 14px; }
+/* commands and their comments share two columns across rows, so every # lines up */
+.code:has(.code-row) { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 22px; align-items: baseline; }
+.code-row { display: contents; }
 .code-row code { font: inherit; color: var(--ink); white-space: nowrap; }
+.code-row.is-wide code { grid-column: 1 / -1; white-space: normal; overflow-wrap: anywhere; margin-bottom: 2px; }
 .code-row .cmt { color: var(--muted); }
-.code-row + .code-row { margin-top: 2px; }
 .copy { position: absolute; top: 8px; right: 8px; min-height: 34px; padding: 4px 12px; font-size: 14px; }
 .copy svg { width: 14px; height: 14px; }
 .copy.is-done { border-color: var(--after); color: var(--after); }
@@ -379,8 +381,8 @@ input.range:disabled { cursor: not-allowed; opacity: .4; }
 
   .loop { display: none; }
   .loop-list { display: block; }
-  .code-row { grid-template-columns: minmax(0, 1fr); }
-  .code-row .cmt { margin-bottom: 6px; white-space: normal; }
+  .code:has(.code-row) { grid-template-columns: minmax(0, 1fr); row-gap: 0; }
+  .code-row .cmt { margin-bottom: 8px; white-space: normal; }
   .code { overflow-x: visible; }
   .code-row code { white-space: pre-wrap; }
   .code:has(.copy) { padding-right: 16px; padding-top: 52px; }
