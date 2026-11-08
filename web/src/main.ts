@@ -103,7 +103,8 @@ const sink: Sink = {
     const first = !store.status || store.status.mode !== s.mode;
     store.status = s;
     renderStatus(s);
-    // the notebook names its rows ("in this replay", rounds.csv total, replay links) from the status: draw it again once known
+    // the scorecard and the notebook name their rows ("in this replay", rounds.csv total, which key is missing) from the status
+    if (first) reef.renderScore();
     if (first && !document.getElementById('p-notebook')!.hidden) notebook.render();
   },
   onHistory: (rs) => {
