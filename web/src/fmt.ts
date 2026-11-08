@@ -26,6 +26,10 @@ export const b4 = (x: number | null) => (x === null ? '—' : x.toFixed(4));
 export const catNo = (n: number) => `No. ${String(n).padStart(4, '0')}`;
 export const short = (s: string, a = 6, b = 4) => (s.length > a + b + 1 ? `${s.slice(0, a)}…${s.slice(-b)}` : s);
 
+/** Deep link `?snap=YYYY-MM-DD` replays an archived snapshot (e.g. the one a demo video was recorded from);
+ * anything else, including path tricks, falls back to the current snapshot. */
+export const snapshotPath = (snap: string | null): string =>
+  snap !== null && /^\d{4}-\d{2}-\d{2}$/.test(snap) ? `data/archive/snapshot-${snap}.json` : 'data/snapshot.json';
 export const suiscanCheckpoint = (seq: string) => `https://suiscan.xyz/mainnet/checkpoint/${seq}`;
 export const suiscanTx = (digest: string) => `https://suiscan.xyz/mainnet/tx/${digest}`;
 

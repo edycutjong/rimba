@@ -5,7 +5,7 @@ import { ReefPage, reefHtml } from './reefpage';
 import { LiveSource, ReplaySource } from './sources';
 import { store } from './state';
 import type { Sink, SourceStatus } from './types';
-import { esc } from './fmt';
+import { esc, snapshotPath } from './fmt';
 
 const main = document.getElementById('main')!;
 main.innerHTML = `<section id="p-reef" data-page="reef">${reefHtml()}</section><section id="p-notebook" data-page="notebook" hidden></section><section id="p-how" data-page="how" hidden>${howHtml()}</section>`;
@@ -31,9 +31,9 @@ function renderStatus(s: SourceStatus) {
     badge.className = 'badge badge--live';
     badge.title = 'Streaming from the local logger server';
   } else {
-    badge.textContent = `REPLAY ${s.speed ?? 10}×`;
+    badge.textContent = `REPLAY ${s.speed ?? 10}×${archived ? ' · ARCHIVE' : ''}`;
     badge.className = 'badge badge--replay';
-    badge.title = `Recorded ${s.generated_at ?? ''} — played back at ${s.speed ?? 10}× speed`;
+    badge.title = `${archived ? `Archived snapshot ${archived}, recorded` : 'Recorded'} ${s.generated_at ?? ''} — played back at ${s.speed ?? 10}× speed`;
   }
 }
 
@@ -88,7 +88,9 @@ const q = new URLSearchParams(location.search);
 const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
 const liveParam = q.get('live');
 const deepRound = q.get('round');
-const wantLive = deepRound === null && (liveParam !== null || (isLocal && q.get('replay') === null));
+const snapPath = snapshotPath(q.get('snap'));
+const archived = snapPath === 'data/snapshot.json' ? null : q.get('snap');
+const wantLive = deepRound === null && archived === null && (liveParam !== null || (isLocal && q.get('replay') === null));
 
 async function boot() {
   if (wantLive) {
@@ -104,7 +106,7 @@ async function boot() {
       return;
     }
   }
-  await new ReplaySource(sink, import.meta.env.BASE_URL, null, { focusId: deepRound, speed: Number(q.get('speed')) || null }).start();
+  await new ReplaySource(sink, import.meta.env.BASE_URL, null, { focusId: deepRound, speed: Number(q.get('speed')) || null, snapshot: snapPath }).start();
 }
 boot().catch((e) => {
   ticker.textContent = `Could not load data: ${String(e)}`;

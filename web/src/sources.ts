@@ -39,16 +39,18 @@ export class ReplaySource {
     private sink: Sink,
     private base = import.meta.env.BASE_URL,
     private reason: string | null = null,
-    opts: { focusId?: string | null; speed?: number | null } = {},
+    opts: { focusId?: string | null; speed?: number | null; snapshot?: string } = {},
   ) {
     this.focusId = opts.focusId ?? null;
+    this.snapshotPath = opts.snapshot ?? 'data/snapshot.json';
     if (opts.speed && Number.isFinite(opts.speed)) this.speed = Math.min(60, Math.max(1, Math.round(opts.speed)));
   }
   private focusId: string | null;
+  private snapshotPath: string;
 
   async start(): Promise<void> {
-    const res = await fetch(`${this.base}data/snapshot.json`, { cache: 'no-cache' });
-    if (!res.ok) throw new Error(`snapshot.json ${res.status}`);
+    const res = await fetch(`${this.base}${this.snapshotPath}`, { cache: 'no-cache' });
+    if (!res.ok) throw new Error(`${this.snapshotPath} ${res.status}`);
     this.snap = (await res.json()) as Snapshot;
     const rounds = this.snap.rounds;
     this.sink.onNotes(this.snap.notes);

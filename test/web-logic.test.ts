@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { noteVote, verdict } from '../web/src/fmt.js';
+import { noteVote, snapshotPath, verdict } from '../web/src/fmt.js';
 import { cumulative, movedWithin, revote, store } from '../web/src/state.js';
 import type { Round } from '../web/src/types.js';
 
@@ -55,5 +55,15 @@ describe('reef web logic', () => {
     expect(c.mem[0]).toBeCloseTo(0.04, 6);
     expect(c.mem[1]).toBeCloseTo((0.04 + 0.64) / 2, 6);
     expect(c.base[1]).toBeCloseTo(0.25, 6);
+  });
+});
+
+describe('snapshotPath (?snap= deep link)', () => {
+  it('maps a dated archive to its file and everything else to the current snapshot', () => {
+    expect(snapshotPath('2026-11-07')).toBe('data/archive/snapshot-2026-11-07.json');
+    expect(snapshotPath(null)).toBe('data/snapshot.json');
+    expect(snapshotPath('')).toBe('data/snapshot.json');
+    expect(snapshotPath('../../etc/passwd')).toBe('data/snapshot.json');
+    expect(snapshotPath('2026-11-07/../x')).toBe('data/snapshot.json');
   });
 });
