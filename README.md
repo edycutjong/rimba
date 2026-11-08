@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="docs/assets/icon.svg" alt="RIMBA icon: a pencilled field card with a green RESOLVED stamp across its corner" width="144">
+  <img src="docs/assets/icon-animated.svg" alt="RIMBA icon: a pencilled field card with a green RESOLVED stamp across its corner" width="144">
   <h1>RIMBA 🪼</h1>
   <p><em>A naturalist agent built on Tatum's Sui gRPC stream and Walrus Memory: it calls what big Sui wallets do next and lets the chain grade its calls.</em></p>
   <img src="docs/assets/readme-hero-animated.svg" alt='RIMBA — a naturalist agent calls what big Sui wallets do next and the chain resolves the call. An ochre-pencilled field card — "moves again within 15 min: YES, 72%" — stamped green RESOLVED by checkpoint, three cited notes beneath.' width="100%">
