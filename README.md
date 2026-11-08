@@ -148,7 +148,7 @@ latches to public at 90 %. A Tatum round opens only if its 15-min horizon fits i
 
 No wallet signing anywhere: RIMBA only reads the chain, and its code never submits a Sui transaction. The Walrus Memory SDK authenticates with a delegate key.
 
-- Reef page: <https://rimba.edycu.dev> (Vercel static, replay of [`web/public/data/snapshot.json`](web/public/data/snapshot.json); every resolved round under the current question is in [`web/public/data/rounds.csv`](web/public/data/rounds.csv): 3,044 rows at the 8 Nov re-freeze, all with the local stand-in; open rounds are not included)
+- Reef page: <https://rimba.edycu.dev> (Vercel static, replay of [`web/public/data/snapshot.json`](web/public/data/snapshot.json); every resolved round under the current question is in [`web/public/data/rounds.csv`](web/public/data/rounds.csv): 3,045 rows at the 8 Nov re-freeze, all with the local stand-in; open rounds are not included)
 - Logger: runs continuously on the builder's machine (`pnpm logger`) and resolves each call on the chain's own clock.
 
 ## 🧮 Scorecard and what it does not claim yet
