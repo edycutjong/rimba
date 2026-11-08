@@ -105,4 +105,6 @@ export interface SourceStatus {
   speed?: number;
   /** now on the chain's clock (ms) — replay uses virtual time */
   clockMs: number;
+  /** replay only: rounds in the snapshot vs every resolved round in rounds.csv (absent on older snapshots) */
+  counts?: { in_snapshot: number; resolved_total: number } | null;
 }

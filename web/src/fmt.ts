@@ -24,6 +24,39 @@ export function fmtAmount(r: Pick<Round, 'amount_raw' | 'coin_type'>): string {
 export const pct = (p: number) => `${Math.round(p * 100)}%`;
 export const b4 = (x: number | null) => (x === null ? '—' : x.toFixed(4));
 export const catNo = (n: number) => `No. ${String(n).padStart(4, '0')}`;
+/** counts as the README prints them: 1,130 */
+export const fmtN = (n: number) => n.toLocaleString('en-US');
+
+/** "8 Nov 2026, 01:00 UTC" — when a snapshot was recorded */
+export function fmtWhen(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' });
+  return `${date}, ${time} UTC`;
+}
+
+/** A field note as written: "Specimen No.0001 · <species> · <outcome clause>" (null if it has another shape). */
+export function noteParts(text: string): { id: string; species: string; clause: string } | null {
+  const parts = text.replace(/^Specimen /, '').split(' · ');
+  if (parts.length !== 3) return null;
+  const [id, species, clause] = parts as [string, string, string];
+  return { id, species, clause };
+}
+
+/** The note's species traits, word by word, flagged where they differ from the sighting's sentence:
+ * a trait that appears verbatim in the sighting matches; otherwise its words are compared with the trait
+ * in the same position. Presentation only — the distance itself comes from the recall. */
+export function traitDiff(noteSpecies: string, sighting: string): { w: string; diff: boolean }[][] {
+  const mine = sighting.split(', ');
+  const have = new Set(mine);
+  return noteSpecies.split(', ').map((trait, i) => {
+    const words = trait.split(' ');
+    if (have.has(trait)) return words.map((w) => ({ w, diff: false }));
+    const peer = new Set((mine[i] ?? '').split(' '));
+    return words.map((w) => ({ w, diff: !peer.has(w) }));
+  });
+}
 export const short = (s: string, a = 6, b = 4) => (s.length > a + b + 1 ? `${s.slice(0, a)}…${s.slice(-b)}` : s);
 
 /** Deep link `?snap=YYYY-MM-DD` replays an archived snapshot (e.g. the one a demo video was recorded from);

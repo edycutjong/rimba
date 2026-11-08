@@ -9,6 +9,7 @@ interface Snapshot {
   rounds: Round[];
   notes: Record<string, NoteInfo>;
   health: { source: string | null; memory: string | null; last_seq: string | null };
+  counts?: { rounds_in_snapshot: number; resolved_total: number };
 }
 
 const rank = (r: Round) => (r.resolution ? Date.parse(r.resolution.resolved_at) : Infinity);
@@ -137,6 +138,7 @@ export class ReplaySource {
       csv_url: `${this.base}data/rounds.csv`,
       speed: this.speed,
       clockMs: this.virtual,
+      counts: this.snap.counts ? { in_snapshot: this.snap.counts.rounds_in_snapshot, resolved_total: this.snap.counts.resolved_total } : null,
     };
   }
   private emitStatus() {
