@@ -8,7 +8,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { thresholdMap } from '../src/loop.js';
 import type { NoteRecord } from '../src/notes.js';
-import { chooseEndpoint, getCheckpoint, getTransaction, makeClients, type RawCheckpoint } from '../src/stream/client.js';
+import { chooseEndpoint, getCheckpoint, getTransaction, makeClients, PUBLIC_HOST, withPaymentFallback, type RawCheckpoint } from '../src/stream/client.js';
 import { files, loadConfig, malformedLines, readJsonl, ROOT, type CallRow, type ResolutionRow } from '../src/store.js';
 import { checkNoBoundary, checkSighting, checkYes, offlineChecks, replayWindow } from '../src/verify.js';
 
@@ -37,7 +37,11 @@ for (const f of off.findings.slice(0, 10)) console.log(`    ✗ ${f.check} ${f.r
 let onlineFailed = 0;
 if (!argv.includes('--offline')) {
   const ep = chooseEndpoint();
-  const clients = makeClients(ep);
+  // Tatum answering 402 (plan out of credits) → the rest of the run goes through the public node, and the report says so
+  const fo = withPaymentFallback(makeClients(ep), undefined, () => {
+    report.endpoint_fallback = { at: new Date().toISOString(), reason: 'HTTP 402 from the Tatum gateway', source: 'public-dev', host: PUBLIC_HOST };
+    console.error(`  Tatum answered 402 (out of credits) — continuing on ${PUBLIC_HOST} (public-dev)`);
+  });
   report.endpoint = { source: ep.source, host: ep.host };
   console.log(`\nonline via ${ep.host} (${ep.source}${ep.source === 'tatum' ? '' : ' — no Tatum key found; set TATUM_API_KEY to verify through the sponsor gateway'})`);
   const resById = new Map(resolutions.map((r) => [r.round_id, r]));
@@ -52,7 +56,7 @@ if (!argv.includes('--offline')) {
   const failures: string[] = [];
   const cpCache = new Map<string, RawCheckpoint | undefined>();
   const cpAt = async (seq: string) => {
-    if (!cpCache.has(seq)) cpCache.set(seq, (await getCheckpoint(clients, seq, 'sequence_number,digest,summary.timestamp')).checkpoint);
+    if (!cpCache.has(seq)) cpCache.set(seq, (await fo.run((c) => getCheckpoint(c, seq, 'sequence_number,digest,summary.timestamp'))).checkpoint);
     return cpCache.get(seq);
   };
   // a failed call (e.g. the gateway still rate-limiting after retries) is reported as such, never as "tx not found"
@@ -62,9 +66,9 @@ if (!argv.includes('--offline')) {
   };
   for (const c of sample) {
     const r = resById.get(c.round_id)!;
-    const s = checkSighting(c, (await getTransaction(clients, c.tx_digest).catch(callFailed)).transaction);
+    const s = checkSighting(c, (await fo.run((k) => getTransaction(k, c.tx_digest)).catch(callFailed)).transaction);
     let o: { ok: boolean; detail: string };
-    if (r.outcome === 1) o = checkYes(c, r, (await getTransaction(clients, r.resolving_digest).catch(callFailed)).transaction, cfg.move_rule, thresholdMap(cfg));
+    if (r.outcome === 1) o = checkYes(c, r, (await fo.run((k) => getTransaction(k, r.resolving_digest)).catch(callFailed)).transaction, cfg.move_rule, thresholdMap(cfg));
     else o = checkNoBoundary(c, r, await cpAt(r.resolving_checkpoint_seq), await cpAt((BigInt(r.resolving_checkpoint_seq) - 1n).toString()));
     if (s.ok) sOk++;
     if (o.ok) oOk++;
@@ -91,7 +95,7 @@ if (!argv.includes('--offline')) {
     const fetchCp = async (s: bigint): Promise<RawCheckpoint | undefined> => {
       for (let attempt = 0; ; attempt++) {
         try {
-          return (await getCheckpoint(clients, s.toString())).checkpoint;
+          return (await fo.run((c) => getCheckpoint(c, s.toString()))).checkpoint;
         } catch (e) {
           const code = (e as { code?: number }).code;
           if (code === 5) return undefined; // NOT_FOUND: past the chain tip
@@ -117,7 +121,7 @@ if (!argv.includes('--offline')) {
     console.log(`replay of ${cps.length} checkpoints ${first}..${cps[cps.length - 1]!.sequence_number} (${Math.round((Date.now() - t0) / 1000)} s): sightings re-found ${rr.sightings_found}/${inWindow.length} · outcomes matched ${rr.matched}/${rr.compared} · independent oracle agrees ${rr.compared - rr.oracle_disagreements.length}/${rr.compared} · holes ${rr.holes}${rr.compared === 0 ? ' · FAIL: nothing compared' : ''}`);
     for (const m of rr.mismatches.slice(0, 10)) console.log(`  ✗ ${m.round_id.slice(0, 12)} local ${m.local} chain ${m.chain} — ${m.detail}`);
   }
-  clients.close();
+  fo.clients.close();
 }
 
 if (argv.includes('--write')) {

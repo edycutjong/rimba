@@ -6,6 +6,7 @@ import * as protoLoader from '@grpc/proto-loader';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadTatum } from '../config.js';
+import { isPaymentRequired } from './governor.js';
 
 export const TATUM_HOST = 'sui-mainnet-grpc.gateway.tatum.io:443';
 export const PUBLIC_HOST = 'fullnode.mainnet.sui.io:443';
@@ -23,6 +24,32 @@ export function chooseEndpoint(): Endpoint {
   const t = loadTatum();
   if (t) return { host: TATUM_HOST, source: 'tatum', apiKey: t.apiKey };
   return { host: PUBLIC_HOST, source: 'public-dev' };
+}
+
+export const PUBLIC_ENDPOINT: Endpoint = { host: PUBLIC_HOST, source: 'public-dev' };
+
+/** Unary calls that fall back to the public node when Tatum answers 402 (plan out of credits) — used by verify.
+ * The switch is one-way for the life of the object and reported through `onSwitch`, so a report can say which
+ * endpoint actually served it. */
+export function withPaymentFallback(primary: SuiClients, makeFallback: () => SuiClients = () => makeClients(PUBLIC_ENDPOINT), onSwitch?: (e: unknown) => void) {
+  let cur = primary;
+  return {
+    get clients(): SuiClients {
+      return cur;
+    },
+    async run<T>(fn: (c: SuiClients) => Promise<T>): Promise<T> {
+      try {
+        return await fn(cur);
+      } catch (e) {
+        if (cur.endpoint.source !== 'tatum' || !isPaymentRequired(e)) throw e;
+        const old = cur;
+        cur = makeFallback();
+        old.close();
+        onSwitch?.(e);
+        return fn(cur);
+      }
+    },
+  };
 }
 
 const PROTO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'proto');

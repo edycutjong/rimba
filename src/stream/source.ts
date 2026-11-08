@@ -7,6 +7,7 @@
 // Checkpoints are delivered strictly in ascending order; a gap that cannot be backfilled is
 // reported through `onGap` so rounds spanning it can be voided rather than mis-resolved.
 import type * as grpc from '@grpc/grpc-js';
+import { isPaymentRequired } from './governor.js';
 import { getCheckpoint, makeClients, subscribeCheckpoints, type Endpoint, type RawCheckpoint, type RawSubscribeResponse, type SuiClients } from './client.js';
 
 export interface SourceEvents {
@@ -15,6 +16,10 @@ export interface SourceEvents {
   onStatus?(msg: string): void;
   /** Called after each sponsor RPC with its latency, for the live integration view. */
   onRpc?(method: string, ms: number, ok: boolean, source: Endpoint['source']): void;
+  /** One streamed message received (Tatum bills each one) — for the credit governor's local meter. */
+  onMessage?(source: Endpoint['source']): void;
+  /** HTTP 402 from a Tatum call. Return true when the handler switched endpoint (no reconnect on the old one). */
+  onPaymentRequired?(source: Endpoint['source'], where: string): boolean;
 }
 
 export interface SourceOptions {
@@ -107,6 +112,7 @@ export class CheckpointSource {
     this.deliveredSinceOpen = 0;
     this.ev.onStatus?.(`stream open on ${this.clients.endpoint.host} (${this.clients.endpoint.source})`);
     st.on('data', (r: RawSubscribeResponse) => {
+      this.ev.onMessage?.(source);
       const cp = r.checkpoint;
       if (!cp?.sequence_number) return;
       this.deliveredSinceOpen++;
@@ -119,6 +125,8 @@ export class CheckpointSource {
       this.ev.onRpc?.('SubscribeCheckpoints', Date.now() - this.streamOpenedAt, false, this.clients.endpoint.source);
       this.ev.onStatus?.(`stream error ${e.code}: ${e.message} — reconnect in ${this.backoffMs} ms`);
       this.stream = null;
+      // 402 = plan out of credits: retrying the same endpoint every 30 s is what lost 5.3 h on 2026-11-08
+      if (source === 'tatum' && isPaymentRequired(e) && this.ev.onPaymentRequired?.(source, 'SubscribeCheckpoints')) return;
       const wait = this.backoffMs;
       // A stream that delivered checkpoints was healthy (the public node resets every ~30 s);
       // only back off exponentially when connects fail outright.
@@ -162,6 +170,8 @@ export class CheckpointSource {
           this.ev.onRpc?.('GetCheckpoint', Date.now() - t, true, c.endpoint.source);
         } catch (e) {
           this.ev.onRpc?.('GetCheckpoint', Date.now() - t, false, c.endpoint.source);
+          // the handler switches this.clients to the public node, so the next attempt goes there at once
+          if (c.endpoint.source === 'tatum' && isPaymentRequired(e) && this.ev.onPaymentRequired?.('tatum', 'GetCheckpoint')) continue;
           if (attempt === 3) this.ev.onStatus?.(`GetCheckpoint ${s} failed: ${String(e)}`);
           await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
         }
