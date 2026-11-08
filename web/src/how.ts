@@ -1,9 +1,23 @@
+const REPO = 'https://github.com/edycutjong/rimba';
+
+// commands for "Check it yourself": [command, what it does]; the copy button copies them as a shell snippet
+const STEPS: [string, string][] = [
+  [`git clone ${REPO} && cd rimba && pnpm install`, ''],
+  ['pnpm logger', 'runs continuously: streams, calls and resolves into data/live/'],
+  ['pnpm verify', 're-derives a sample of rounds from Tatum GetCheckpoint / GetTransaction'],
+  ['pnpm verify --offline', 'checks the invariants on the append-only logs'],
+  ['pnpm score', 'Brier scorecard: memory vs base rate vs frequency table'],
+];
+
+const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+const snippet = () => STEPS.map(([c, d]) => (d ? `${c.padEnd(22)} # ${d}` : c)).join('\n');
+
 export function howHtml(): string {
   return `
 <div class="doc">
-  <p class="eyebrow">How it works</p>
+  <p class="eyebrow">Plate III · Field method</p>
   <h1 class="doc-h">A naturalist, a stream, and a notebook it cannot cheat in</h1>
-  <p class="lede">RIMBA watches Sui mainnet for large transfers, writes down a call about what that wallet does next, and lets the chain mark it. Outcomes become field notes in Walrus Memory (up to 400 a day, novel species and corrections first), so the next call can cite what it learned.</p>
+  <p class="lede">RIMBA watches Sui mainnet for large transfers, writes down a call about what that wallet does next, and lets the chain mark it. Outcomes become field notes in Walrus Memory (up to 400 a day, novel species and corrections first), so the next call can cite what it learned. Until the Walrus Memory key is wired, a local stand-in keeps those notes, and every row says which.</p>
 
   <figure class="loopfig">
     <svg viewBox="0 0 880 330" role="img" aria-labelledby="loop-t loop-d" class="loop">
@@ -24,6 +38,15 @@ export function howHtml(): string {
         <path d="M204 212V150Q204 128 226 128H520Q540 128 540 110" stroke-dasharray="4 4"/>
       </g>
     </svg>
+    <ol class="loop-list" aria-label="The RIMBA loop, step by step">
+      <li><span class="st">1 · Tatum stream</span><span class="m">SubscribeCheckpoints</span><span class="d">large transfers become sightings</span></li>
+      <li><span class="st">2 · Species sentence</span><span class="d">traits become words — deterministic, no LLM</span></li>
+      <li><span class="st">3 · Recall</span><span class="m">memwal.recall</span><span class="d">Walrus Memory, field-notes namespace</span></li>
+      <li class="is-call"><span class="st">4 · The call, frozen</span><span class="d">YES/NO with the cited notes, plus the base rate and the wallet’s habit, at the same instant</span></li>
+      <li class="is-chain"><span class="st">5 · The chain answers</span><span class="m">GetCheckpoint · GetTransaction</span><span class="d">later checkpoints resolve it</span></li>
+      <li><span class="st">6 · Field note</span><span class="m">rememberBulk</span><span class="d">the outcome is written to memory</span></li>
+      <li class="is-next"><span class="st">The next sighting of that kind</span><span class="d">recalls this note — or a newer one that supersedes it — and the loop runs again from step 3</span></li>
+    </ol>
     <figcaption>One loop, six steps. The call (4) is written to disk before its outcome exists; the notes it cites must be older than the call.</figcaption>
   </figure>
 
@@ -31,10 +54,10 @@ export function howHtml(): string {
     <section class="plate">
       <h2>What each sponsor does</h2>
       <dl class="calls">
-        <dt>Tatum — the eyes and the judge</dt>
-        <dd>The gRPC gateway streams every Sui mainnet checkpoint (<span class="mono">sui.rpc.v2.SubscriptionService/SubscribeCheckpoints</span>). The same gateway re-derives outcomes later: <span class="mono">LedgerService/GetCheckpoint</span> and <span class="mono">LedgerService/GetTransaction</span>. The call path contains no model.</dd>
-        <dt>Walrus Memory — the notebook</dt>
-        <dd>Resolved outcomes are written as notes in the <span class="mono">field-notes</span> namespace, up to 400 a day, novel species and corrections first. <span class="mono">recall</span> returns the nearest notes with distances; <span class="mono">rememberBulk</span> writes new ones; memories are immutable, so a species whose behaviour drifts gets a newer note that supersedes the old one.</dd>
+        <dt>Tatum — the eyes and the judge <span class="status status--on">primary stream</span></dt>
+        <dd>The gRPC gateway streams every Sui mainnet checkpoint (<span class="mono">sui.rpc.v2.<wbr>SubscriptionService/<wbr>SubscribeCheckpoints</span>). The same gateway re-derives outcomes later: <span class="mono">LedgerService/<wbr>GetCheckpoint</span> and <span class="mono">LedgerService/<wbr>GetTransaction</span>. Sui’s public fullnode is the fallback, and its rows are labelled. The call path contains no model.</dd>
+        <dt>Walrus Memory — the notebook <span class="status status--pending">key pending</span></dt>
+        <dd>Resolved outcomes are written as notes in the <span class="mono">field-notes</span> namespace, up to 400 a day, novel species and corrections first. <span class="mono">recall</span> returns the nearest notes with distances; <span class="mono">rememberBulk</span> writes new ones; memories are immutable, so a species whose behaviour drifts gets a newer note that supersedes the old one. A local stand-in answers until the delegate key is wired.</dd>
       </dl>
     </section>
     <section class="plate">
@@ -50,11 +73,11 @@ export function howHtml(): string {
 
   <section class="plate">
     <h2>Check it yourself</h2>
-    <p>From the repository root, with a Tatum key in <span class="mono">~/.config/tatum/tatum.env</span>:</p>
-    <pre class="code" tabindex="0"><code>pnpm install
-pnpm verify            # re-derives a sample of rounds from Tatum GetCheckpoint / GetTransaction
-pnpm verify --offline  # checks the invariants on the append-only logs
-pnpm score             # Brier scorecard: memory vs base rate vs frequency table</code></pre>
+    <p>The scripts read the append-only logs in <span class="mono">data/<wbr>live/</span>, which a local <span class="mono">pnpm logger</span> run writes; the published ledger is <a class="link-intro" href="data/rounds.csv" target="_blank" rel="noopener">rounds.csv</a>. With a Tatum key in <span class="mono">~/.config/<wbr>tatum/<wbr>tatum.env</span> the logger and <span class="mono">pnpm verify</span> read the chain through Tatum; without one, through Sui’s public fullnode, and they say so. Code: <a class="link-intro" href="${REPO}" target="_blank" rel="noopener">github.com/edycutjong/rimba</a>.</p>
+    <div class="code" role="group" aria-label="Commands">
+      <button type="button" class="pill copy" data-copy aria-label="Copy the commands"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10.5 3.5v-.5A1.5 1.5 0 0 0 9 1.5H3A1.5 1.5 0 0 0 1.5 3v6A1.5 1.5 0 0 0 3 10.5h.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg><span data-copy-t>Copy</span></button>
+      ${STEPS.map(([c, d]) => `<div class="code-row"><code>${esc(c)}</code><span class="cmt">${d ? `# ${esc(d)}` : ''}</span></div>`).join('')}
+    </div>
     <p class="muted">Every scorecard number on the reef links to <span class="mono">rounds.csv</span>; each row there names its checkpoint and transaction digest.</p>
   </section>
 
@@ -62,10 +85,32 @@ pnpm score             # Brier scorecard: memory vs base rate vs frequency table
     <h2>What this page is, honestly</h2>
     <ul class="ticks">
       <li>The deployed page <b>replays</b> a frozen snapshot at 10× and says so in the badge. The live mode needs the logger running on a machine you control.</li>
-      <li>Rows labelled <i>public-dev</i> or <i>local-dev</i> came from Sui’s public fullnode or a local memory stand-in, before the Tatum and Walrus Memory keys existed. They are shown, never counted as the headline.</li>
+      <li>Rows labelled <i>public-dev</i> came from Sui’s public fullnode: before the Tatum key existed, or when the credit governor or an HTTP 402 falls back to it. Rows labelled <i>local-dev</i> used a local memory stand-in, because the Walrus Memory delegate key is not wired yet. Both are shown, never counted as the headline.</li>
       <li>Walrus Memory’s relayer sees plaintext. Notes contain only public chain facts: bucketed traits, an outcome, a checkpoint number.</li>
       <li>“Moves again” is a habit question, and the frequency table is a strong opponent on wallets it has seen. That is why the headline is on wallets it has not.</li>
     </ul>
   </section>
 </div>`;
+}
+
+/** the copy button: writes the commands to the clipboard and says so for a moment */
+export function wireHow(root: HTMLElement) {
+  root.addEventListener('click', async (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-copy]');
+    if (!b) return;
+    const label = b.querySelector<HTMLElement>('[data-copy-t]');
+    // the clipboard API is missing on insecure origins; the label then asks for a manual copy
+    const ok = navigator.clipboard
+      ? await navigator.clipboard.writeText(snippet()).then(
+          () => true,
+          () => false,
+        )
+      : false;
+    if (label) label.textContent = ok ? 'Copied' : 'Select and copy';
+    b.classList.toggle('is-done', ok);
+    window.setTimeout(() => {
+      if (label) label.textContent = 'Copy';
+      b.classList.remove('is-done');
+    }, 1_800);
+  });
 }
