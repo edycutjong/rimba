@@ -30,6 +30,9 @@
 dated yes/no forecast ("does this wallet move again within 15 minutes?"), frozen before the answer exists, graded by
 the chain and scored by Brier against the base rate and the wallet's own habit.
 
+<p align="center"><img src="docs/broll.gif" alt="13-second loop of one real call: a 5,000 SUI transfer lands on the reef as specimen No. 7685; the field card names it in plain words, recalls four of its 20 cited Walrus Memory notes, freezes YES 66% against a 34% base rate and a 30% wallet habit; the chain's clock runs and checkpoint 343181055 stamps it MOVED AGAIN, CALL RIGHT; then the headline scorecard: 4,157 resolved Tatum × Walrus rounds, never-seen wallets Brier 0.0699 vs 0.1425 base rate, all rounds 0.1380 vs 0.2191" width="100%"></p>
+<p align="center"><sub>One real round (No. 7685, Tatum stream × Walrus Memory, clock sped up) and the headline scores, all from the 10 Nov freeze (<code>web/public/data/snapshot.json</code>, <a href="evidence/freeze-2026-11-10.md">freeze-2026-11-10.md</a>).</sub></p>
+
 > **Read this first.** RIMBA scores itself, and it only counts a round toward its headline if the checkpoint arrived
 > through **Tatum's Sui gRPC** *and* the recall came from **Walrus Memory**. Walrus Memory went live on 8 Nov at
 > 03:12:53 UTC; from then on, rounds streamed through Tatum count toward the headline. At the 10 Nov re-freeze (12:37:50 UTC) the headline
