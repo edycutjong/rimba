@@ -169,8 +169,8 @@ taken at the same instant; `rounds.csv` holds all 7,813 resolved rounds. The log
   [Running on a metered plan](#-sponsor-integration--tatum--walrus-memory)).
 - 9 Nov 02:20 UTC → 10 Nov 12:35 UTC (about 34 h): the builder's machine lost network (`ENETUNREACH`), the logger was
   stopped at 02:57 UTC and restarted at 12:35 UTC. It logged a 507,787-checkpoint gap, beyond its 1,200-checkpoint
-  backfill cap, so no rounds exist for that period; rounds open across it were voided and the 399 notes still queued
-  in memory at the stop were never written.
+  backfill cap, so no rounds exist for that period; rounds open across it were voided. The 399 notes queued for Walrus
+  at the stop were kept in the logger's saved state and resumed after the restart.
 
 **Limitations, stated plainly**
 - "Moves again within 15 min" is partly a habit question; the per-address frequency table is a strong opponent on known
