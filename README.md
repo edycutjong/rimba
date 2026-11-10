@@ -151,7 +151,7 @@ Question: does the sender move again within 15 minutes (any transfer)? Source of
 |---|---|---|
 | Tatum gRPC × Walrus Memory (**headline**) | **4,157** | since the Walrus switch-over, 8 Nov 03:12:53 UTC; 36 void (checkpoint gap), 309 excluded (call written > 60 s after its checkpoint) |
 | Tatum stream × local stand-in (**DEV MEMORY**) | 874 rows in `rounds.csv` | 7–8 Nov, before Walrus Memory was live; not a headline |
-| Sui public fullnode × local stand-in (**DEV DATA**) | 2,408 | 6–7 Nov, development only, never a headline |
+| Sui public fullnode × local stand-in (**DEV DATA**) | 2,408 | 6–7 Nov, development only, never a headline (44 more in `rounds.csv` resolved via the other stream and are not scored here) |
 
 Headline (Tatum × Walrus), Brier score, lower is better:
 
@@ -172,8 +172,8 @@ taken at the same instant; `rounds.csv` holds all 7,813 resolved rounds. The log
 - 7 Nov 19:05 → 8 Nov 00:23 UTC (5 h 18 min): Tatum free plan exhausted, 78,717-checkpoint gap (see
   [Running on a metered plan](#-sponsor-integration--tatum--walrus-memory)).
 - 9 Nov 02:20 UTC → 10 Nov 12:35 UTC (about 34 h): the builder's machine lost network (`ENETUNREACH`), the logger was
-  stopped at 02:57 UTC and restarted at 12:35 UTC. It logged a 507,787-checkpoint gap, beyond its 1,200-checkpoint
-  backfill cap, so no rounds exist for that period; rounds open across it were voided. The 399 notes queued for Walrus
+  stopped at 02:57 UTC and restarted at 12:35 UTC. It skipped 506,587 checkpoints (343207864..343714450; the log line says 507,787 because it counts the 1,200 it
+  then backfilled), beyond its 1,200-checkpoint backfill cap, so no rounds exist for that period; rounds open across it were voided. The 399 notes queued for Walrus
   at the stop were kept in the logger's saved state and resumed after the restart.
 
 **Limitations, stated plainly**
