@@ -171,7 +171,8 @@ export function makeServer(opts: ServerOptions = {}): Server {
       }
     } catch (e) {
       // Log the detail server-side; never echo error text or stack to the client (CodeQL js/stack-trace-exposure).
-      console.error(`[server] ${req.method} ${req.url} failed:`, e);
+      // Constant format string: req.url is client-controlled (CodeQL js/tainted-format-string).
+      console.error('[server] %s %s failed:', req.method, req.url, e);
       return json(res, 500, { error: 'internal error' });
     }
   });
