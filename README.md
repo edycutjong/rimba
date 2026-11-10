@@ -7,6 +7,7 @@
   <br/>
 
   [![Live Reef](https://img.shields.io/badge/🚀_Live-Reef-06b6d4?style=for-the-badge)](https://rimba.edycu.dev)
+  [![Demo Video](https://img.shields.io/badge/▶_Demo-Video-ff0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/7qJOvaxraEQ)
   [![Built for Total Recall](https://img.shields.io/badge/Tatum_×_Walrus-Total_Recall-8b5cf6?style=for-the-badge)](https://tatum.io/hackathon/total-recall)
 
   <br/>
@@ -44,6 +45,9 @@ the chain and scored by Brier against the base rate and the wallet's own habit.
 The animated banner above replays one real logged call (No. 0409: 699.94 SUI, `YES · 72%`, resolved at checkpoint
 342451091, outcome written as note No.0218). It ran on development data (public fullnode + local memory stand-in) and
 illustrates the loop; it is not a scorecard figure.
+
+Demo video (2 min 54 s): <https://youtu.be/7qJOvaxraEQ>. It was recorded on 7–8 Nov, before Walrus Memory went live, so
+every number in it is development data and labelled so on screen; the live headline is in the [Scorecard](#-scorecard-and-what-it-does-not-claim-yet).
 
 The [live reef](https://rimba.edycu.dev) replays a committed snapshot of real Sui mainnet sightings at 10× speed
 (badge `REPLAY`); run the logger and server locally and the same page switches to `LIVE` over server-sent events.
