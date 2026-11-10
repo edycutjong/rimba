@@ -26,5 +26,8 @@ rows `public-dev`. The logger retries Tatum every 10 min; see `evidence/tatum-cr
 
 `pnpm score` and `pnpm verify --offline` read `data/live/`, which only exists after a local `pnpm logger` run.
 
-The scorecard separates the headline (Tatum stream × Walrus Memory) from development rows. At the time of writing
-the headline has no rounds; see the README.
+The scorecard separates the headline (Tatum stream × Walrus Memory, live since 8 Nov 03:12:53 UTC) from development
+rows. At the 10 Nov re-freeze (12:37:50 UTC) the headline had 4,157 resolved rounds; on never-seen wallets
+(N = 1,918) the memory's Brier score is 0.0699 against 0.1425 for the base rate. On seen-before wallets the
+per-address frequency table (0.1314) beats the memory (0.1964). Full tables, the dev rows and the two logger outages
+(5 h 18 min on 7–8 Nov, about 34 h on 9–10 Nov) are in the README and `evidence/freeze-2026-11-10.md`.

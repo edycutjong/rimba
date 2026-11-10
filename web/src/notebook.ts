@@ -28,7 +28,7 @@ export class Notebook {
     });
   }
 
-  /** "400 rounds in this replay · rounds.csv holds all 3,045" — both numbers come from the snapshot */
+  /** "400 rounds in this replay · rounds.csv holds all 7,813" — both numbers come from the snapshot */
   private countLine(shown: number, total: number): string {
     const s = store.status;
     const where = s?.mode === 'live' ? 'from the logger' : 'in this replay';
