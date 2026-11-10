@@ -8,6 +8,8 @@
 
   [![Live Reef](https://img.shields.io/badge/🚀_Live-Reef-06b6d4?style=for-the-badge)](https://rimba.edycu.dev)
   [![Demo Video](https://img.shields.io/badge/▶_Demo-Video-ff0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/7qJOvaxraEQ)
+  [![Write-up on dev.to](https://img.shields.io/badge/Write--up-dev.to-0a0a0a?style=for-the-badge&logo=devdotto&logoColor=white)](https://dev.to/edycutjong/a-sui-naturalist-that-gets-graded-by-the-chain-building-rimba-for-tatum-walrus-4ng4)
+  [![Post on X](https://img.shields.io/badge/Post-on_X-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/edycutjong/status/2120137559816982573)
   [![Built for Total Recall](https://img.shields.io/badge/Tatum_×_Walrus-Total_Recall-8b5cf6?style=for-the-badge)](https://tatum.io/hackathon/total-recall)
 
   <br/>
