@@ -117,7 +117,7 @@ jobs:
       - name: Web deps (for vite preview)
         working-directory: web
         run: pnpm install --ignore-workspace --frozen-lockfile
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: web-dist
           path: web/dist
